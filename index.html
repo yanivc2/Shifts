@@ -1,0 +1,605 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+<title>סידור עבודה שבועי</title>
+<!-- v1.1 -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+:root{
+  --ink:#1E2733; --muted:#6B7686; --line:#E3E7ED; --bg:#F3F5F8; --card:#FFFFFF;
+  --brand:#1B4965; --brand-soft:#E7F0F6;
+  --morning:#E8A200; --morning-bg:#FFF6E0;
+  --evening:#D95F2B; --evening-bg:#FDEEE5;
+  --night:#3D5A9E;  --night-bg:#E9EEF9;
+  --ok:#1F8A5B; --ok-bg:#E4F4EC; --no:#C8403E; --no-bg:#FBE9E8;
+  --radius:14px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+body{font-family:-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;padding-bottom:90px}
+button{font-family:inherit;border:none;background:none;cursor:pointer;color:inherit}
+input,select{font-family:inherit;font-size:16px}
+
+/* ---------- Header ---------- */
+header{background:var(--brand);color:#fff;padding:14px 16px 0;position:sticky;top:0;z-index:20}
+header h1{font-size:18px;font-weight:700;display:flex;align-items:center;justify-content:space-between}
+.loc-tabs{display:flex;gap:8px;overflow-x:auto;padding:12px 0 10px;-webkit-overflow-scrolling:touch}
+.loc-tab{flex:0 0 auto;padding:7px 16px;border-radius:999px;background:rgba(255,255,255,.14);color:#fff;font-size:14px;font-weight:600;white-space:nowrap}
+.loc-tab.active{background:#fff;color:var(--brand)}
+.loc-add{flex:0 0 auto;padding:7px 12px;border-radius:999px;border:1.5px dashed rgba(255,255,255,.5);color:#fff;font-size:14px}
+
+/* ---------- Week bar ---------- */
+.weekbar{display:flex;align-items:center;justify-content:space-between;background:var(--card);padding:10px 12px;border-bottom:1px solid var(--line);position:sticky;top:88px;z-index:15}
+.weekbar b{font-size:15px}
+.weekbar small{display:block;color:var(--muted);font-size:12px;font-weight:400;text-align:center}
+.wk-btn{width:38px;height:38px;border-radius:10px;background:var(--bg);font-size:18px;color:var(--brand);font-weight:700}
+
+/* ---------- Day cards ---------- */
+main{padding:12px}
+.day-card{background:var(--card);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,45,.06)}
+.day-head{padding:10px 14px;font-weight:700;font-size:15px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;color:var(--brand)}
+.day-head small{color:var(--muted);font-weight:400}
+.shift-row{display:flex;border-bottom:1px solid var(--line);min-height:56px}
+.shift-row:last-child{border-bottom:none}
+.shift-label{flex:0 0 64px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:700;gap:2px;border-left:1px solid var(--line)}
+.shift-label span{font-size:16px}
+.sl-morning{background:var(--morning-bg);color:var(--morning)}
+.sl-evening{background:var(--evening-bg);color:var(--evening)}
+.sl-night{background:var(--night-bg);color:var(--night)}
+.shift-body{flex:1;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.emp-chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13.5px;font-weight:600}
+.emp-chip .role{font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--brand-soft);color:var(--brand)}
+.emp-chip .role.store{background:#EFEAF9;color:#6B4FBB}
+.emp-chip.warn{border-color:var(--no);background:var(--no-bg)}
+.emp-chip.warn::after{content:"⚠";font-size:12px;color:var(--no)}
+.cell-add{width:30px;height:30px;border-radius:999px;background:var(--brand-soft);color:var(--brand);font-size:18px;font-weight:700;line-height:1}
+.empty-hint{color:var(--muted);font-size:13px}
+
+/* ---------- Bottom action bar ---------- */
+.actionbar{position:fixed;bottom:0;right:0;left:0;background:var(--card);border-top:1px solid var(--line);display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:30}
+.act{flex:1;padding:12px 4px;border-radius:12px;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--bg);color:var(--brand)}
+.act span{font-size:19px}
+.act.primary{background:var(--brand);color:#fff}
+
+/* ---------- Sheets / modals ---------- */
+.overlay{position:fixed;inset:0;background:rgba(15,25,40,.45);z-index:40;display:none}
+.overlay.open{display:block}
+.sheet{position:fixed;bottom:0;right:0;left:0;background:var(--card);border-radius:20px 20px 0 0;z-index:50;max-height:86vh;display:none;flex-direction:column}
+.sheet.open{display:flex}
+.sheet-head{padding:16px 18px 10px;border-bottom:1px solid var(--line)}
+.sheet-head h2{font-size:17px}
+.sheet-head p{color:var(--muted);font-size:13px;margin-top:2px}
+.sheet-body{overflow-y:auto;padding:10px 14px;flex:1;-webkit-overflow-scrolling:touch}
+.sheet-foot{padding:10px 14px calc(12px + env(safe-area-inset-bottom));border-top:1px solid var(--line)}
+.btn{display:block;width:100%;padding:13px;border-radius:12px;font-size:16px;font-weight:700;text-align:center}
+.btn-primary{background:var(--brand);color:#fff}
+.btn-ghost{background:var(--bg);color:var(--ink);margin-top:8px}
+
+/* assignment rows in cell editor */
+.assign-row{display:flex;align-items:center;gap:10px;padding:11px 4px;border-bottom:1px solid var(--line)}
+.assign-row:last-child{border-bottom:none}
+.avail-dot{flex:0 0 auto;width:22px;height:22px;border-radius:999px;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:800}
+.avail-yes{background:var(--ok-bg);color:var(--ok)}
+.avail-no{background:var(--no-bg);color:var(--no)}
+.avail-unk{background:var(--bg);color:var(--muted)}
+.assign-name{flex:1;font-weight:600;font-size:15px}
+.assign-name small{display:block;font-weight:400;font-size:12px;color:var(--muted)}
+.role-toggle{flex:0 0 auto;display:none;font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;background:var(--brand-soft);color:var(--brand)}
+.role-toggle.store{background:#EFEAF9;color:#6B4FBB}
+.hrs-btn{background:var(--bg);color:var(--muted)}
+.assign-check{flex:0 0 auto;width:26px;height:26px;border-radius:8px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
+.assign-row.on .assign-check{background:var(--brand);border-color:var(--brand)}
+.assign-row.on .role-toggle{display:block}
+
+/* employees screen */
+.emp-item{background:var(--card);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(20,30,45,.06)}
+.emp-avatar{width:42px;height:42px;border-radius:999px;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:0 0 auto}
+.emp-info{flex:1;min-width:0}
+.emp-info b{font-size:15px;display:block}
+.emp-info small{color:var(--muted);font-size:12.5px}
+.emp-btn{flex:0 0 auto;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:12.5px;font-weight:700;color:var(--brand)}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:13px;font-weight:700;margin-bottom:5px;color:var(--muted)}
+.field input,.field select{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:#fff}
+
+/* availability grid */
+.av-grid{width:100%;border-collapse:collapse;table-layout:fixed}
+.av-grid th{font-size:12px;color:var(--muted);padding:6px 2px;font-weight:600}
+.av-grid td{padding:3px}
+.av-cell{width:100%;padding:9px 0;border-radius:9px;font-size:12.5px;font-weight:700;background:var(--bg);color:var(--muted);border:1.5px solid transparent}
+.av-cell.yes{background:var(--ok-bg);color:var(--ok);border-color:var(--ok)}
+.av-cell.no{background:var(--no-bg);color:var(--no);border-color:var(--no)}
+.legend{display:flex;gap:14px;justify-content:center;font-size:12px;color:var(--muted);padding:8px 0 2px}
+.legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-left:4px;vertical-align:-1px}
+
+/* ---------- Print table (also used for image share) ---------- */
+#printArea{position:absolute;right:-3000px;top:0;width:1100px;background:#fff;padding:26px 30px;direction:rtl;font-family:-apple-system,"Segoe UI",Arial,sans-serif}
+#printArea .pt-head{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:14px;border-bottom:3px solid var(--brand);padding-bottom:8px}
+#printArea .pt-head h2{font-size:24px;color:var(--brand)}
+#printArea .pt-head span{font-size:15px;color:#445}
+.pt{width:100%;border-collapse:collapse}
+.pt th,.pt td{border:1.5px solid #B9C2CE;padding:6px;vertical-align:top;text-align:center}
+.pt thead th{background:var(--brand);color:#fff;font-size:14.5px;padding:8px 4px}
+.pt thead th small{display:block;font-weight:400;font-size:11px;opacity:.85}
+.pt .sh{width:72px;font-weight:800;font-size:14px}
+.pt .sh-morning{background:var(--morning-bg);color:#9A6C00}
+.pt .sh-evening{background:var(--evening-bg);color:#A8431B}
+.pt .sh-night{background:var(--night-bg);color:#2C4276}
+.pt td{height:86px;font-size:13px}
+.pt .pemp{margin:2px 0;font-weight:600}
+.pt .pemp i{font-style:normal;font-size:10.5px;font-weight:700;color:var(--brand);background:var(--brand-soft);border-radius:4px;padding:0 4px;margin-right:3px}
+.pt .pemp i.store{color:#6B4FBB;background:#EFEAF9}
+
+@media print{
+  @page{size:A4 landscape;margin:8mm}
+  body>*{display:none!important}
+  body{background:#fff;padding:0}
+  #printArea{display:block!important;position:static!important;width:100%!important;padding:0!important}
+}
+.toast{position:fixed;bottom:100px;right:50%;transform:translateX(50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none}
+.toast.show{opacity:1}
+.dlg-wrap{position:fixed;inset:0;background:rgba(15,25,40,.5);z-index:80;display:none;align-items:center;justify-content:center;padding:24px}
+.dlg-wrap.open{display:flex}
+.dlg{background:var(--card);border-radius:16px;padding:18px;width:100%;max-width:340px}
+.dlg h3{font-size:16px;margin-bottom:12px}
+.dlg input{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px}
+.dlg-btns{display:flex;gap:8px}
+.dlg-btns .btn{flex:1;margin:0}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 סידור עבודה <button id="btnRenameLoc" style="font-size:12px;background:rgba(255,255,255,.14);padding:5px 10px;border-radius:8px;color:#fff">שינוי שם סניף</button></h1>
+  <div class="loc-tabs" id="locTabs"></div>
+</header>
+
+<div class="weekbar">
+  <button class="wk-btn" id="wkPrev">›</button>
+  <div style="text-align:center"><b id="wkTitle"></b><small id="wkSub"></small></div>
+  <button class="wk-btn" id="wkNext">‹</button>
+</div>
+
+<main id="days"></main>
+
+<div class="actionbar">
+  <button class="act" id="btnEmps"><span>👥</span>עובדים</button>
+  <button class="act" id="btnPrint"><span>🖨️</span>הדפסה A4</button>
+  <button class="act primary" id="btnShare"><span>📤</span>שיתוף בוואטסאפ</button>
+</div>
+
+<div class="overlay" id="overlay"></div>
+
+<!-- Cell editor -->
+<div class="sheet" id="cellSheet">
+  <div class="sheet-head"><h2 id="cellTitle"></h2><p>סמן עובדים למשמרת · לחץ על התג להחלפה בין קופה לחנות</p></div>
+  <div class="sheet-body" id="cellBody"></div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סיום</button></div>
+</div>
+
+<!-- Employees -->
+<div class="sheet" id="empSheet">
+  <div class="sheet-head"><h2>עובדים · <span id="empLocName"></span></h2><p>ניתן להדביק איש קשר ששותף מוואטסאפ בשדה השם</p></div>
+  <div class="sheet-body" id="empBody"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
+    <button class="btn btn-ghost" id="btnPickContacts">📇 בחירה מאנשי הקשר</button>
+    <button class="btn btn-ghost" id="btnVcf">📎 ייבוא איש קשר מוואטסאפ (קובץ)</button>
+    <button class="btn btn-ghost" id="btnImport">⬇️ ייבוא הצוות מהלוז הידני</button>
+    <div style="display:flex;gap:8px;margin-top:8px">
+      <button class="btn btn-ghost" id="btnBackup" style="margin:0">💾 גיבוי נתונים</button>
+      <button class="btn btn-ghost" id="btnRestore" style="margin:0">♻️ שחזור מגיבוי</button>
+    </div>
+    <button class="btn btn-ghost" onclick="closeSheets()">סגירה</button>
+  </div>
+  <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
+  <input type="file" id="vcfFile" accept=".vcf,text/vcard,text/x-vcard,text/directory" multiple style="display:none">
+</div>
+
+<!-- Employee form -->
+<div class="sheet" id="empFormSheet">
+  <div class="sheet-head"><h2 id="empFormTitle">עובד חדש</h2></div>
+  <div class="sheet-body">
+    <div class="field"><label>שם העובד</label><input id="fName" placeholder="לדוגמה: דני לוי"></div>
+    <div class="field"><label>טלפון (וואטסאפ)</label><input id="fPhone" inputmode="tel" placeholder="050-1234567"></div>
+    <div class="field"><label>תפקיד ברירת מחדל</label>
+      <select id="fRole"><option value="cash">קופה</option><option value="store">חנות</option></select></div>
+  </div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" id="btnSaveEmp">שמירה</button>
+    <button class="btn btn-ghost" id="btnDelEmp" style="color:var(--no)">מחיקת עובד</button>
+    <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
+  </div>
+</div>
+
+<!-- Availability -->
+<div class="sheet" id="avSheet">
+  <div class="sheet-head"><h2 id="avTitle"></h2><p id="avWeek"></p></div>
+  <div class="sheet-body">
+    <table class="av-grid" id="avGrid"></table>
+    <div class="legend">
+      <span><i style="background:var(--ok)"></i>זמין</span>
+      <span><i style="background:var(--no)"></i>לא זמין</span>
+      <span><i style="background:#C4CBD5"></i>לא ידוע</span>
+    </div>
+    <button class="btn btn-ghost" id="btnAskAvail" style="margin-top:10px">💬 שליחת בקשת זמינות בוואטסאפ</button>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="openEmployees()">סיום</button></div>
+</div>
+
+<div id="printArea"></div>
+<div class="dlg-wrap" id="dlg">
+  <div class="dlg">
+    <h3 id="dlgTitle"></h3>
+    <input id="dlgInput">
+    <div class="dlg-btns">
+      <button id="dlgCancel" class="btn btn-ghost" style="margin:0">ביטול</button>
+      <button id="dlgOk" class="btn btn-primary">אישור</button>
+    </div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* ================= Data ================= */
+const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+const SHIFTS=[{id:'m',name:'בוקר',ico:'☀️',cls:'morning'},{id:'e',name:'ערב',ico:'🌇',cls:'evening'},{id:'n',name:'לילה',ico:'🌙',cls:'night'}];
+let S={locations:[{id:'L1',name:'סניף 1',employees:[]}],sched:{},avail:{},cur:'L1'};
+let weekStart=sundayOf(new Date());
+let memOnly=false;
+
+/* צוות שחולץ מהלוז הידני שצורף - ניתן לערוך שמות/טלפונים במסך עובדים */
+const PRESET=[
+ {name:'אורות',role:'store'},{name:'צאלח',role:'store'},{name:'מקסים',role:'store'},
+ {name:'נדב',role:'store'},{name:'קירל',role:'store'},{name:'שירז',role:'cash'},
+ {name:'נופר',role:'cash'},{name:'נגה',role:'cash'},{name:'חסן',role:'store'},
+ {name:'אלנה',role:'cash'},{name:'דניאלה',role:'cash'},{name:'קוסטה',role:'store'},
+ {name:'נטלי',role:'cash'}
+];
+function mergePreset(){
+  let n=0;
+  PRESET.forEach((p,i)=>{
+    if(!loc().employees.find(e=>e.name===p.name)){
+      loc().employees.push({id:'E'+Date.now()+'_'+i,name:p.name,phone:'',role:p.role});n++;
+    }
+  });
+  save();return n;
+}
+
+async function load(){
+  let raw=null;
+  try{const r=await window.storage.get('sched-v1');if(r&&r.value)raw=r.value;}catch(e){}
+  if(!raw){try{raw=localStorage.getItem('sched-v1');}catch(e){}}
+  if(raw){try{S=JSON.parse(raw);}catch(e){raw=null;}}
+  if(!S.locations||!S.locations.length)S.locations=[{id:'L1',name:'סניף 1',employees:[]}];
+  if(!S.locations.find(l=>l.id===S.cur))S.cur=S.locations[0].id;
+  if(!raw)mergePreset();
+}
+let saveT;
+function save(){clearTimeout(saveT);saveT=setTimeout(async()=>{
+  const data=JSON.stringify(S);
+  let ok=false;
+  try{await window.storage.set('sched-v1',data);ok=true;}catch(e){}
+  try{localStorage.setItem('sched-v1',data);ok=true;}catch(e){}
+  if(!ok&&!memOnly){memOnly=true;toast('שים לב: הדפדפן חוסם שמירה - הנתונים זמניים');}
+},400);}
+
+function sundayOf(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d;}
+function wkKey(){return weekStart.toISOString().slice(0,10);}
+function dOf(i){const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;}
+function fmt(d){return d.getDate()+'.'+(d.getMonth()+1);}
+function loc(){return S.locations.find(l=>l.id===S.cur);}
+function cellKey(di,sh){return di+'-'+sh;}
+function getCell(di,sh){const a=((S.sched[S.cur]||{})[wkKey()]||{})[cellKey(di,sh)];return a||[];}
+function setCell(di,sh,arr){S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save();}
+function getAv(empId,di,sh){return((((S.avail[S.cur]||{})[wkKey()]||{})[empId]||{})[cellKey(di,sh)])||'unk';}
+function setAv(empId,di,sh,v){S.avail[S.cur]=S.avail[S.cur]||{};const w=S.avail[S.cur][wkKey()]=S.avail[S.cur][wkKey()]||{};w[empId]=w[empId]||{};w[empId][cellKey(di,sh)]=v;save();}
+
+/* ---- דיאלוגים מובנים (prompt/confirm חסומים בסביבת Artifact) ---- */
+function askText(title,value,ph){return new Promise(res=>{
+  const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
+  document.getElementById('dlgTitle').textContent=title;
+  inp.style.display='block';inp.value=value||'';inp.placeholder=ph||'';
+  w.classList.add('open');setTimeout(()=>inp.focus(),50);
+  document.getElementById('dlgOk').onclick=()=>{w.classList.remove('open');res(inp.value);};
+  document.getElementById('dlgCancel').onclick=()=>{w.classList.remove('open');res(null);};
+});}
+function askConfirm(title){return new Promise(res=>{
+  const w=document.getElementById('dlg');
+  document.getElementById('dlgTitle').textContent=title;
+  document.getElementById('dlgInput').style.display='none';
+  w.classList.add('open');
+  document.getElementById('dlgOk').onclick=()=>{w.classList.remove('open');res(true);};
+  document.getElementById('dlgCancel').onclick=()=>{w.classList.remove('open');res(false);};
+});}
+
+/* ================= Render main ================= */
+function render(){
+  const tabs=document.getElementById('locTabs');tabs.innerHTML='';
+  S.locations.forEach(l=>{
+    const b=document.createElement('button');b.className='loc-tab'+(l.id===S.cur?' active':'');b.textContent=l.name;
+    b.onclick=()=>{S.cur=l.id;save();render();};tabs.appendChild(b);
+  });
+  const add=document.createElement('button');add.className='loc-add';add.textContent='+ סניף';
+  add.onclick=async()=>{const n=await askText('שם הסניף החדש','','לדוגמה: סניף רחובות');if(!n||!n.trim())return;const id='L'+Date.now();S.locations.push({id,name:n.trim(),employees:[]});S.cur=id;save();render();};
+  tabs.appendChild(add);
+
+  document.getElementById('wkTitle').textContent='שבוע '+fmt(dOf(0))+' – '+fmt(dOf(6));
+  document.getElementById('wkSub').textContent=loc().name;
+
+  const main=document.getElementById('days');main.innerHTML='';
+  DAYS.forEach((dn,di)=>{
+    const card=document.createElement('div');card.className='day-card';
+    card.innerHTML='<div class="day-head">יום '+dn+'<small>'+fmt(dOf(di))+'</small></div>';
+    SHIFTS.forEach(sh=>{
+      const row=document.createElement('div');row.className='shift-row';
+      const lab=document.createElement('div');lab.className='shift-label sl-'+sh.cls;lab.innerHTML='<span>'+sh.ico+'</span>'+sh.name;
+      const body=document.createElement('div');body.className='shift-body';
+      getCell(di,sh.id).forEach(a=>{
+        const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
+        const chip=document.createElement('button');
+        chip.className='emp-chip'+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
+        chip.innerHTML=emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
+        chip.onclick=()=>openCell(di,sh.id);
+        body.appendChild(chip);
+      });
+      if(!getCell(di,sh.id).length){const h=document.createElement('span');h.className='empty-hint';h.textContent='ללא שיבוץ';body.appendChild(h);}
+      const plus=document.createElement('button');plus.className='cell-add';plus.textContent='+';plus.onclick=()=>openCell(di,sh.id);
+      body.appendChild(plus);
+      row.appendChild(lab);row.appendChild(body);card.appendChild(row);
+    });
+    main.appendChild(card);
+  });
+}
+
+/* ================= Sheets ================= */
+function openSheet(id){closeSheets(true);document.getElementById('overlay').classList.add('open');document.getElementById(id).classList.add('open');}
+function closeSheets(keep){document.querySelectorAll('.sheet').forEach(s=>s.classList.remove('open'));if(!keep){document.getElementById('overlay').classList.remove('open');render();}}
+document.getElementById('overlay').onclick=()=>closeSheets();
+
+/* ---- Cell editor ---- */
+let curCell=null;
+function openCell(di,sh){
+  curCell={di,sh};
+  const shift=SHIFTS.find(s=>s.id===sh);
+  document.getElementById('cellTitle').textContent='יום '+DAYS[di]+' '+fmt(dOf(di))+' · משמרת '+shift.name;
+  const body=document.getElementById('cellBody');body.innerHTML='';
+  if(!loc().employees.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">אין עובדים בסניף זה עדיין.<br>הוסף עובדים דרך מסך "עובדים".</p>';}
+  const cell=getCell(di,sh);
+  const sorted=[...loc().employees].sort((a,b)=>{
+    const r={yes:0,unk:1,no:2};return r[getAv(a.id,di,sh)]-r[getAv(b.id,di,sh)];
+  });
+  sorted.forEach(emp=>{
+    const av=getAv(emp.id,di,sh);
+    const asn=cell.find(c=>c.empId===emp.id);
+    const row=document.createElement('div');row.className='assign-row'+(asn?' on':'');
+    const avTxt={yes:'✓',no:'✗',unk:'?'}[av];
+    const avLbl={yes:'זמין',no:'לא זמין',unk:'זמינות לא ידועה'}[av];
+    row.innerHTML='<div class="avail-dot avail-'+av+'">'+avTxt+'</div>'+
+      '<div class="assign-name">'+emp.name+'<small>'+avLbl+'</small></div>'+
+      '<button class="role-toggle hrs-btn">🕐 '+(asn&&asn.hrs?asn.hrs:'שעות')+'</button>'+
+      '<button class="role-toggle '+((asn?asn.role:emp.role)==='store'?'store':'')+'">'+(((asn?asn.role:emp.role)==='store')?'חנות':'קופה')+'</button>'+
+      '<div class="assign-check">✓</div>';
+    row.querySelectorAll('.role-toggle')[1].onclick=(ev)=>{
+      ev.stopPropagation();
+      const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);if(!a)return;
+      a.role=a.role==='store'?'cash':'store';setCell(di,sh,arr);openCell(di,sh);
+    };
+    row.querySelector('.hrs-btn').onclick=async(ev)=>{
+      ev.stopPropagation();
+      const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);if(!a)return;
+      const v=await askText('שעות למשמרת (ריק = משמרת מלאה)',a.hrs||'','לדוגמה: 11-23');
+      if(v===null)return;a.hrs=v.trim();setCell(di,sh,arr);openCell(di,sh);
+    };
+    row.onclick=async()=>{
+      let arr=getCell(di,sh);
+      if(arr.find(c=>c.empId===emp.id)){arr=arr.filter(c=>c.empId!==emp.id);}
+      else{
+        if(av==='no'&&!(await askConfirm(emp.name+' סימן שאינו זמין במשמרת זו. לשבץ בכל זאת?')))return;
+        arr=[...arr,{empId:emp.id,role:emp.role||'cash'}];
+      }
+      setCell(di,sh,arr);openCell(di,sh);
+    };
+    body.appendChild(row);
+  });
+  openSheet('cellSheet');
+}
+
+/* ---- Employees ---- */
+function openEmployees(){
+  document.getElementById('empLocName').textContent=loc().name;
+  const body=document.getElementById('empBody');body.innerHTML='';
+  if(!loc().employees.length)body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">עדיין אין עובדים.<br>לחץ על "הוספת עובד" כדי להתחיל.</p>';
+  loc().employees.forEach(emp=>{
+    const it=document.createElement('div');it.className='emp-item';
+    it.innerHTML='<div class="emp-avatar">'+emp.name.slice(0,1)+'</div>'+
+      '<div class="emp-info"><b>'+emp.name+'</b><small>'+(emp.phone||'ללא טלפון')+' · '+(emp.role==='store'?'חנות':'קופה')+'</small></div>'+
+      '<button class="emp-btn av">🗓 זמינות</button><button class="emp-btn ed">✏️</button>';
+    it.querySelector('.av').onclick=()=>openAvail(emp.id);
+    it.querySelector('.ed').onclick=()=>openEmpForm(emp.id);
+    body.appendChild(it);
+  });
+  openSheet('empSheet');
+}
+document.getElementById('btnEmps').onclick=openEmployees;
+document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
+document.getElementById('btnImport').onclick=()=>{const n=mergePreset();toast(n?'נוספו '+n+' עובדים':'כל הצוות כבר קיים');openEmployees();};
+
+/* ---- גיבוי ושחזור ---- */
+document.getElementById('btnBackup').onclick=async()=>{
+  const data=JSON.stringify(S,null,1);
+  const fname='גיבוי-סידור-'+new Date().toISOString().slice(0,10)+'.json';
+  const blob=new Blob([data],{type:'application/json'});
+  const file=new File([blob],fname,{type:'application/json'});
+  if(navigator.canShare&&navigator.canShare({files:[file]})){
+    try{await navigator.share({files:[file],title:'גיבוי סידור עבודה'});toast('הגיבוי נוצר');}catch(e){}
+  }else{
+    const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=fname;a.click();
+    toast('קובץ הגיבוי הורד');
+  }
+};
+document.getElementById('btnRestore').onclick=()=>document.getElementById('restoreFile').click();
+document.getElementById('restoreFile').onchange=async(ev)=>{
+  const f=ev.target.files[0];ev.target.value='';if(!f)return;
+  try{
+    const obj=JSON.parse(await f.text());
+    if(!obj.locations||!Array.isArray(obj.locations))throw 0;
+    if(!(await askConfirm('שחזור הגיבוי יחליף את כל הנתונים הנוכחיים. להמשיך?')))return;
+    S=obj;if(!S.locations.find(l=>l.id===S.cur))S.cur=S.locations[0].id;
+    save();toast('הנתונים שוחזרו');closeSheets();
+  }catch(e){toast('קובץ גיבוי לא תקין');}
+};
+
+/* ---- ייבוא מאנשי קשר (Contact Picker API) ---- */
+document.getElementById('btnPickContacts').onclick=async()=>{
+  if(!('contacts' in navigator)){
+    await askConfirm('באייפון הפיצ׳ר כבוי כברירת מחדל. להפעלה: הגדרות ← Safari ← מתקדם ← Feature Flags ← הפעל Contact Picker API, ואז רענן. לחלופין השתמש בייבוא קובץ מוואטסאפ.');
+    return;
+  }
+  try{
+    const picked=await navigator.contacts.select(['name','tel'],{multiple:true});
+    let n=0;
+    picked.forEach(c=>{
+      const name=(c.name&&c.name[0]||'').trim();if(!name)return;
+      if(loc().employees.find(e=>e.name===name))return;
+      loc().employees.push({id:'E'+Date.now()+'_'+n,name,phone:(c.tel&&c.tel[0]||'').trim(),role:'cash'});n++;
+    });
+    save();toast(n?'נוספו '+n+' עובדים':'לא נוספו עובדים חדשים');openEmployees();
+  }catch(e){/* המשתמש ביטל */}
+};
+
+/* ---- ייבוא קובץ vCard (שיתוף איש קשר מוואטסאפ/אנשי קשר) ---- */
+document.getElementById('btnVcf').onclick=()=>document.getElementById('vcfFile').click();
+document.getElementById('vcfFile').onchange=async(ev)=>{
+  let n=0;
+  for(const f of ev.target.files){
+    const txt=await f.text();
+    txt.split(/BEGIN:VCARD/i).forEach(block=>{
+      if(!/END:VCARD/i.test(block))return;
+      const unfolded=block.replace(/\r?\n[ \t]/g,'');
+      const fn=(unfolded.match(/^FN[^:]*:(.+)$/mi)||[])[1];
+      const tel=(unfolded.match(/^TEL[^:]*:(.+)$/mi)||[])[1];
+      const name=(fn||'').trim();if(!name)return;
+      if(loc().employees.find(e=>e.name===name))return;
+      loc().employees.push({id:'E'+Date.now()+'_'+n,name,phone:(tel||'').trim(),role:'cash'});n++;
+    });
+  }
+  ev.target.value='';
+  save();toast(n?'נוספו '+n+' עובדים':'לא זוהו אנשי קשר חדשים בקובץ');openEmployees();
+};
+
+let editEmpId=null;
+function openEmpForm(id){
+  editEmpId=id;
+  const emp=id?loc().employees.find(e=>e.id===id):null;
+  document.getElementById('empFormTitle').textContent=emp?'עריכת עובד':'עובד חדש';
+  document.getElementById('fName').value=emp?emp.name:'';
+  document.getElementById('fPhone').value=emp?emp.phone:'';
+  document.getElementById('fRole').value=emp?emp.role:'cash';
+  document.getElementById('btnDelEmp').style.display=emp?'block':'none';
+  openSheet('empFormSheet');
+}
+document.getElementById('btnSaveEmp').onclick=()=>{
+  const name=document.getElementById('fName').value.trim();
+  if(!name){toast('יש להזין שם');return;}
+  const phone=document.getElementById('fPhone').value.trim();
+  const role=document.getElementById('fRole').value;
+  if(editEmpId){const e=loc().employees.find(x=>x.id===editEmpId);e.name=name;e.phone=phone;e.role=role;}
+  else loc().employees.push({id:'E'+Date.now(),name,phone,role});
+  save();openEmployees();
+};
+document.getElementById('btnDelEmp').onclick=async()=>{
+  if(!(await askConfirm('למחוק את העובד? השיבוצים שלו יוסרו.')))return;
+  loc().employees=loc().employees.filter(e=>e.id!==editEmpId);
+  const ws=S.sched[S.cur]||{};Object.values(ws).forEach(w=>{Object.keys(w).forEach(k=>{w[k]=w[k].filter(c=>c.empId!==editEmpId);});});
+  save();openEmployees();
+};
+
+/* ---- Availability ---- */
+let avEmpId=null;
+function openAvail(empId){
+  avEmpId=empId;
+  const emp=loc().employees.find(e=>e.id===empId);
+  document.getElementById('avTitle').textContent='זמינות · '+emp.name;
+  document.getElementById('avWeek').textContent='שבוע '+fmt(dOf(0))+' – '+fmt(dOf(6))+' · לחיצה מחליפה: לא ידוע ← זמין ← לא זמין';
+  const g=document.getElementById('avGrid');
+  let html='<tr><th></th>'+SHIFTS.map(s=>'<th>'+s.ico+' '+s.name+'</th>').join('')+'</tr>';
+  DAYS.forEach((dn,di)=>{
+    html+='<tr><th style="text-align:right">'+dn+'</th>';
+    SHIFTS.forEach(sh=>{
+      const av=getAv(empId,di,sh.id);
+      html+='<td><button class="av-cell '+(av==='yes'?'yes':av==='no'?'no':'')+'" data-d="'+di+'" data-s="'+sh.id+'">'+({yes:'זמין',no:'לא',unk:'—'})[av]+'</button></td>';
+    });
+    html+='</tr>';
+  });
+  g.innerHTML=html;
+  g.querySelectorAll('.av-cell').forEach(b=>b.onclick=()=>{
+    const di=+b.dataset.d,sh=b.dataset.s;
+    const next={unk:'yes',yes:'no',no:'unk'}[getAv(empId,di,sh)];
+    setAv(empId,di,sh,next);openAvail(empId);
+  });
+  openSheet('avSheet');
+}
+document.getElementById('btnAskAvail').onclick=()=>{
+  const emp=loc().employees.find(e=>e.id===avEmpId);
+  if(!emp.phone){toast('לעובד אין מספר טלפון');return;}
+  const msg='היי '+emp.name+' 👋\nמסדרים את הלוז לשבוע '+fmt(dOf(0))+'–'+fmt(dOf(6))+' ב'+loc().name+'.\nמתי אתה זמין? (בוקר / ערב / לילה, לכל יום)\nתודה!';
+  window.open('https://wa.me/'+ilPhone(emp.phone)+'?text='+encodeURIComponent(msg));
+};
+function ilPhone(p){p=p.replace(/[^0-9]/g,'');if(p.startsWith('0'))p='972'+p.slice(1);return p;}
+
+/* ---- Rename location ---- */
+document.getElementById('btnRenameLoc').onclick=async()=>{
+  const n=await askText('שם הסניף',loc().name);if(n&&n.trim()){loc().name=n.trim();save();render();}
+};
+
+/* ================= Week nav ================= */
+document.getElementById('wkPrev').onclick=()=>{weekStart.setDate(weekStart.getDate()-7);render();};
+document.getElementById('wkNext').onclick=()=>{weekStart.setDate(weekStart.getDate()+7);render();};
+
+/* ================= Print & Share ================= */
+function buildPrint(){
+  const pa=document.getElementById('printArea');
+  let html='<div class="pt-head"><h2>'+loc().name+' · סידור עבודה שבועי</h2><span>שבוע '+fmt(dOf(0))+' – '+fmt(dOf(6))+' '+dOf(6).getFullYear()+'</span></div>';
+  html+='<table class="pt"><thead><tr><th class="sh">משמרת</th>';
+  DAYS.forEach((dn,di)=>html+='<th>יום '+dn+'<small>'+fmt(dOf(di))+'</small></th>');
+  html+='</tr></thead><tbody>';
+  SHIFTS.forEach(sh=>{
+    html+='<tr><td class="sh sh-'+sh.cls+'">'+sh.ico+'<br>'+sh.name+'</td>';
+    DAYS.forEach((dn,di)=>{
+      html+='<td>';
+      getCell(di,sh.id).forEach(a=>{
+        const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
+        html+='<div class="pemp">'+emp.name+(a.hrs?' <span style="font-size:11px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</i></div>';
+      });
+      html+='</td>';
+    });
+    html+='</tr>';
+  });
+  html+='</tbody></table>';
+  pa.innerHTML=html;
+}
+document.getElementById('btnPrint').onclick=()=>{buildPrint();setTimeout(()=>window.print(),100);};
+
+document.getElementById('btnShare').onclick=async()=>{
+  buildPrint();toast('מכין תמונה…');
+  try{
+    const canvas=await html2canvas(document.getElementById('printArea'),{scale:2,backgroundColor:'#fff'});
+    const blob=await new Promise(r=>canvas.toBlob(r,'image/png'));
+    const file=new File([blob],'סידור-'+loc().name+'-'+wkKey()+'.png',{type:'image/png'});
+    if(navigator.canShare&&navigator.canShare({files:[file]})){
+      await navigator.share({files:[file],title:'סידור עבודה '+loc().name});
+    }else{
+      const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=file.name;a.click();
+      toast('התמונה הורדה – ניתן לשתף אותה בוואטסאפ');
+    }
+  }catch(e){if(e.name!=='AbortError')toast('השיתוף נכשל, נסה שוב');}
+};
+
+function toast(t){const el=document.getElementById('toast');el.textContent=t;el.classList.add('show');setTimeout(()=>el.classList.remove('show'),2500);}
+
+load().then(render);
+</script>
+</body>
+</html>
