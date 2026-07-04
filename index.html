@@ -146,6 +146,7 @@ main{padding:12px}
 .dlg input{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px}
 .dlg-btns{display:flex;gap:8px}
 .dlg-btns .btn{flex:1;margin:0}
+.srch{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;margin-top:10px;font-size:15px;background:var(--bg)}
 </style>
 </head>
 <body>
@@ -173,14 +174,16 @@ main{padding:12px}
 
 <!-- Cell editor -->
 <div class="sheet" id="cellSheet">
-  <div class="sheet-head"><h2 id="cellTitle"></h2><p>סמן עובדים למשמרת · לחץ על התג להחלפה בין קופה לחנות</p></div>
+  <div class="sheet-head"><h2 id="cellTitle"></h2><p>סמן עובדים למשמרת · לחץ על התג להחלפה בין קופה לחנות</p>
+    <input class="srch" id="cellSearch" placeholder="🔍 חיפוש עובד"></div>
   <div class="sheet-body" id="cellBody"></div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סיום</button></div>
 </div>
 
 <!-- Employees -->
 <div class="sheet" id="empSheet">
-  <div class="sheet-head"><h2>עובדים · <span id="empLocName"></span></h2><p>ניתן להדביק איש קשר ששותף מוואטסאפ בשדה השם</p></div>
+  <div class="sheet-head"><h2>עובדים · <span id="empLocName"></span></h2><p>ניתן להדביק איש קשר ששותף מוואטסאפ בשדה השם</p>
+    <input class="srch" id="empSearch" placeholder="🔍 חיפוש עובד"></div>
   <div class="sheet-body" id="empBody"></div>
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
@@ -361,15 +364,26 @@ document.getElementById('overlay').onclick=()=>closeSheets();
 /* ---- Cell editor ---- */
 let curCell=null;
 function openCell(di,sh){
+  const isNew=!curCell||curCell.di!==di||curCell.sh!==sh;
   curCell={di,sh};
   const shift=SHIFTS.find(s=>s.id===sh);
   document.getElementById('cellTitle').textContent='יום '+DAYS[di]+' '+fmt(dOf(di))+' · משמרת '+shift.name;
+  const inp=document.getElementById('cellSearch');
+  if(isNew)inp.value='';
+  inp.oninput=renderCellList;
+  renderCellList();
+  openSheet('cellSheet');
+}
+function renderCellList(){
+  const {di,sh}=curCell;
+  const q=document.getElementById('cellSearch').value.trim();
   const body=document.getElementById('cellBody');body.innerHTML='';
-  if(!loc().employees.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">אין עובדים בסניף זה עדיין.<br>הוסף עובדים דרך מסך "עובדים".</p>';}
+  if(!loc().employees.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">אין עובדים בסניף זה עדיין.<br>הוסף עובדים דרך מסך "עובדים".</p>';return;}
   const cell=getCell(di,sh);
-  const sorted=[...loc().employees].sort((a,b)=>{
-    const r={yes:0,unk:1,no:2};return r[getAv(a.id,di,sh)]-r[getAv(b.id,di,sh)];
-  });
+  const sorted=[...loc().employees]
+    .filter(e=>!q||e.name.includes(q))
+    .sort((a,b)=>{const r={yes:0,unk:1,no:2};return r[getAv(a.id,di,sh)]-r[getAv(b.id,di,sh)];});
+  if(!sorted.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">לא נמצא עובד בשם "'+q+'"</p>';return;}
   sorted.forEach(emp=>{
     const av=getAv(emp.id,di,sh);
     const asn=cell.find(c=>c.empId===emp.id);
@@ -384,13 +398,13 @@ function openCell(di,sh){
     row.querySelectorAll('.role-toggle')[1].onclick=(ev)=>{
       ev.stopPropagation();
       const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);if(!a)return;
-      a.role=a.role==='store'?'cash':'store';setCell(di,sh,arr);openCell(di,sh);
+      a.role=a.role==='store'?'cash':'store';setCell(di,sh,arr);renderCellList();
     };
     row.querySelector('.hrs-btn').onclick=async(ev)=>{
       ev.stopPropagation();
       const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);if(!a)return;
       const v=await askText('שעות למשמרת (ריק = משמרת מלאה)',a.hrs||'','לדוגמה: 11-23');
-      if(v===null)return;a.hrs=v.trim();setCell(di,sh,arr);openCell(di,sh);
+      if(v===null)return;a.hrs=v.trim();setCell(di,sh,arr);renderCellList();
     };
     row.onclick=async()=>{
       let arr=getCell(di,sh);
@@ -399,19 +413,27 @@ function openCell(di,sh){
         if(av==='no'&&!(await askConfirm(emp.name+' סימן שאינו זמין במשמרת זו. לשבץ בכל זאת?')))return;
         arr=[...arr,{empId:emp.id,role:emp.role||'cash'}];
       }
-      setCell(di,sh,arr);openCell(di,sh);
+      setCell(di,sh,arr);renderCellList();
     };
     body.appendChild(row);
   });
-  openSheet('cellSheet');
 }
 
 /* ---- Employees ---- */
 function openEmployees(){
   document.getElementById('empLocName').textContent=loc().name;
+  const inp=document.getElementById('empSearch');
+  inp.oninput=renderEmpList;
+  renderEmpList();
+  openSheet('empSheet');
+}
+function renderEmpList(){
+  const q=document.getElementById('empSearch').value.trim();
   const body=document.getElementById('empBody');body.innerHTML='';
-  if(!loc().employees.length)body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">עדיין אין עובדים.<br>לחץ על "הוספת עובד" כדי להתחיל.</p>';
-  loc().employees.forEach(emp=>{
+  if(!loc().employees.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">עדיין אין עובדים.<br>לחץ על "הוספת עובד" כדי להתחיל.</p>';return;}
+  const list=loc().employees.filter(e=>!q||e.name.includes(q)||(e.phone||'').includes(q));
+  if(!list.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">לא נמצא עובד בשם "'+q+'"</p>';return;}
+  list.forEach(emp=>{
     const it=document.createElement('div');it.className='emp-item';
     it.innerHTML='<div class="emp-avatar">'+emp.name.slice(0,1)+'</div>'+
       '<div class="emp-info"><b>'+emp.name+'</b><small>'+(emp.phone||'ללא טלפון')+' · '+(emp.role==='store'?'חנות':'קופה')+'</small></div>'+
@@ -420,7 +442,6 @@ function openEmployees(){
     it.querySelector('.ed').onclick=()=>openEmpForm(emp.id);
     body.appendChild(it);
   });
-  openSheet('empSheet');
 }
 document.getElementById('btnEmps').onclick=openEmployees;
 document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
