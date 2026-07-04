@@ -187,6 +187,8 @@ main{padding:12px}
   <div class="sheet-body" id="empBody"></div>
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
+    <button class="btn btn-ghost" id="btnSmartPaste">📋 הדבקה חכמה (שם + מספר)</button>
+    <button class="btn btn-ghost" id="btnPhonebook">📖 ספר טלפונים (חיפוש באנשי קשר)</button>
     <button class="btn btn-ghost" id="btnPickContacts">📇 בחירה מאנשי הקשר</button>
     <button class="btn btn-ghost" id="btnVcf">📎 ייבוא איש קשר מוואטסאפ (קובץ)</button>
     <button class="btn btn-ghost" id="btnImport">⬇️ ייבוא הצוות מהלוז הידני</button>
@@ -217,6 +219,18 @@ main{padding:12px}
 </div>
 
 <!-- Availability -->
+<div class="sheet" id="pbSheet">
+  <div class="sheet-head"><h2>📖 ספר טלפונים</h2><p>לחיצה על שם מוסיפה אותו כעובד בסניף הנוכחי</p>
+    <input class="srch" id="pbSearch" placeholder="🔍 חיפוש לפי שם או מספר"></div>
+  <div class="sheet-body" id="pbBody"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" id="btnPbImport">📥 ייבוא אנשי קשר (קובץ vcf)</button>
+    <button class="btn btn-ghost" id="btnPbClear" style="color:var(--no)">🗑 ניקוי ספר הטלפונים</button>
+    <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
+  </div>
+  <input type="file" id="pbFile" accept=".vcf,text/vcard,text/x-vcard,text/directory" multiple style="display:none">
+</div>
+
 <div class="sheet" id="avSheet">
   <div class="sheet-head"><h2 id="avTitle"></h2><p id="avWeek"></p></div>
   <div class="sheet-body">
@@ -447,6 +461,21 @@ document.getElementById('btnEmps').onclick=openEmployees;
 document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
 document.getElementById('btnImport').onclick=()=>{const n=mergePreset();toast(n?'נוספו '+n+' עובדים':'כל הצוות כבר קיים');openEmployees();};
 
+/* ---- הדבקה חכמה: "דני לוי 0501234567" -> שם + טלפון ---- */
+document.getElementById('btnSmartPaste').onclick=async()=>{
+  const raw=await askText('הדבק שם ומספר (בשורה אחת או כמה שורות)','','דני לוי 050-1234567');
+  if(!raw||!raw.trim())return;
+  let n=0;
+  raw.split(/\n+/).forEach((line,i)=>{
+    const phone=(line.match(/(\+?972[\d\- ]{8,}|0\d[\d\- ]{7,})/)||[])[0]||'';
+    const name=line.replace(phone,'').replace(/[,;:|]+/g,' ').replace(/\s+/g,' ').trim();
+    if(!name)return;
+    if(loc().employees.find(e=>e.name===name))return;
+    loc().employees.push({id:'E'+Date.now()+'_p'+i,name,phone:phone.trim(),role:'cash'});n++;
+  });
+  save();toast(n?'נוספו '+n+' עובדים':'לא זוהה שם תקין');renderEmpList();
+};
+
 /* ---- גיבוי ושחזור ---- */
 document.getElementById('btnBackup').onclick=async()=>{
   const data=JSON.stringify(S,null,1);
@@ -472,6 +501,70 @@ document.getElementById('restoreFile').onchange=async(ev)=>{
   }catch(e){toast('קובץ גיבוי לא תקין');}
 };
 
+/* ---- פענוח vCard משותף ---- */
+function parseVcfText(txt){
+  const out=[];
+  txt.split(/BEGIN:VCARD/i).forEach(block=>{
+    if(!/END:VCARD/i.test(block))return;
+    const unfolded=block.replace(/\r?\n[ \t]/g,'');
+    const fn=(unfolded.match(/^FN[^:]*:(.+)$/mi)||[])[1];
+    const tel=(unfolded.match(/^TEL[^:]*:(.+)$/mi)||[])[1];
+    const name=(fn||'').trim();
+    if(name)out.push({name,phone:(tel||'').trim()});
+  });
+  return out;
+}
+
+/* ---- ספר טלפונים ---- */
+function openPhonebook(){
+  const inp=document.getElementById('pbSearch');
+  inp.oninput=renderPbList;
+  renderPbList();
+  openSheet('pbSheet');
+}
+function renderPbList(){
+  const q=document.getElementById('pbSearch').value.trim();
+  const body=document.getElementById('pbBody');body.innerHTML='';
+  const pb=S.phonebook||[];
+  if(!pb.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">ספר הטלפונים ריק.<br>לחץ "ייבוא אנשי קשר" וטען קובץ vcf<br>(ייצוא מ-icloud.com/contacts או שיתוף מרובה מאנשי קשר).</p>';return;}
+  let list=pb.filter(c=>!q||c.name.includes(q)||(c.phone||'').includes(q));
+  const total=list.length;
+  if(!total){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">לא נמצא "'+q+'"</p>';return;}
+  list=list.slice(0,150);
+  list.forEach(c=>{
+    const isEmp=!!loc().employees.find(e=>e.name===c.name);
+    const it=document.createElement('div');it.className='emp-item';
+    it.innerHTML='<div class="emp-avatar">'+c.name.slice(0,1)+'</div>'+
+      '<div class="emp-info"><b>'+c.name+'</b><small>'+(c.phone||'ללא מספר')+'</small></div>'+
+      (isEmp?'<span class="emp-btn" style="color:var(--ok)">✓ עובד</span>':'<button class="emp-btn add" style="background:var(--brand);color:#fff">+ הוסף</button>');
+    if(!isEmp)it.querySelector('.add').onclick=()=>{
+      loc().employees.push({id:'E'+Date.now(),name:c.name,phone:c.phone||'',role:'cash'});
+      save();toast(c.name+' נוסף לסניף '+loc().name);renderPbList();
+    };
+    body.appendChild(it);
+  });
+  if(total>150){const p=document.createElement('p');p.style.cssText='text-align:center;color:var(--muted);font-size:12.5px;padding:8px';p.textContent='מוצגים 150 מתוך '+total+' — חדד את החיפוש';body.appendChild(p);}
+}
+document.getElementById('btnPhonebook').onclick=openPhonebook;
+document.getElementById('btnPbImport').onclick=()=>document.getElementById('pbFile').click();
+document.getElementById('pbFile').onchange=async(ev)=>{
+  S.phonebook=S.phonebook||[];
+  let n=0;
+  for(const f of ev.target.files){
+    parseVcfText(await f.text()).forEach(c=>{
+      if(S.phonebook.find(x=>x.name===c.name&&x.phone===c.phone))return;
+      S.phonebook.push(c);n++;
+    });
+  }
+  ev.target.value='';
+  S.phonebook.sort((a,b)=>a.name.localeCompare(b.name,'he'));
+  save();toast(n?'נטענו '+n+' אנשי קשר':'לא נמצאו אנשי קשר חדשים');renderPbList();
+};
+document.getElementById('btnPbClear').onclick=async()=>{
+  if(!(await askConfirm('לנקות את כל ספר הטלפונים? (העובדים לא יימחקו)')))return;
+  S.phonebook=[];save();renderPbList();
+};
+
 /* ---- ייבוא מאנשי קשר (Contact Picker API) ---- */
 document.getElementById('btnPickContacts').onclick=async()=>{
   if(!('contacts' in navigator)){
@@ -495,15 +588,9 @@ document.getElementById('btnVcf').onclick=()=>document.getElementById('vcfFile')
 document.getElementById('vcfFile').onchange=async(ev)=>{
   let n=0;
   for(const f of ev.target.files){
-    const txt=await f.text();
-    txt.split(/BEGIN:VCARD/i).forEach(block=>{
-      if(!/END:VCARD/i.test(block))return;
-      const unfolded=block.replace(/\r?\n[ \t]/g,'');
-      const fn=(unfolded.match(/^FN[^:]*:(.+)$/mi)||[])[1];
-      const tel=(unfolded.match(/^TEL[^:]*:(.+)$/mi)||[])[1];
-      const name=(fn||'').trim();if(!name)return;
-      if(loc().employees.find(e=>e.name===name))return;
-      loc().employees.push({id:'E'+Date.now()+'_'+n,name,phone:(tel||'').trim(),role:'cash'});n++;
+    parseVcfText(await f.text()).forEach((c,i)=>{
+      if(loc().employees.find(e=>e.name===c.name))return;
+      loc().employees.push({id:'E'+Date.now()+'_'+n+'_'+i,name:c.name,phone:c.phone,role:'cash'});n++;
     });
   }
   ev.target.value='';
