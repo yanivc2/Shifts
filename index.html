@@ -88,6 +88,10 @@ main{padding:12px}
 .role-toggle{flex:0 0 auto;display:none;font-size:12px;font-weight:700;padding:6px 10px;border-radius:8px;background:var(--brand-soft);color:var(--brand)}
 .role-toggle.store{background:#EFEAF9;color:#6B4FBB}
 .hrs-btn{background:var(--bg);color:var(--muted)}
+.pin-btn{display:none;background:var(--bg);opacity:.45;filter:grayscale(1)}
+.assign-row.on .pin-btn{display:block}
+.pin-btn.pin-on{opacity:1;filter:none;background:var(--brand-soft)}
+.av-cell.fx{background:var(--brand-soft);color:var(--brand);border-color:var(--brand)}
 .assign-check{flex:0 0 auto;width:26px;height:26px;border-radius:8px;border:2px solid var(--line);display:flex;align-items:center;justify-content:center;color:#fff;font-weight:800}
 .assign-row.on .assign-check{background:var(--brand);border-color:var(--brand)}
 .assign-row.on .role-toggle{display:block}
@@ -158,7 +162,8 @@ main{padding:12px}
 
 <div class="weekbar">
   <button class="wk-btn" id="wkPrev">›</button>
-  <div style="text-align:center"><b id="wkTitle"></b><small id="wkSub"></small></div>
+  <div style="text-align:center"><b id="wkTitle"></b><small id="wkSub"></small>
+    <button id="wkCopy" style="display:block;margin:3px auto 0;font-size:12px;font-weight:700;color:var(--brand);background:var(--brand-soft);padding:4px 12px;border-radius:999px">📋 העתקה משבוע קודם</button></div>
   <button class="wk-btn" id="wkNext">‹</button>
 </div>
 
@@ -216,6 +221,20 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnDelEmp" style="color:var(--no)">מחיקת עובד</button>
     <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
   </div>
+</div>
+
+<!-- Assign by employee -->
+<div class="sheet" id="eaSheet">
+  <div class="sheet-head"><h2 id="eaTitle"></h2><p id="eaWeek"></p></div>
+  <div class="sheet-body">
+    <table class="av-grid" id="eaGrid"></table>
+    <div class="legend">
+      <span><i style="background:#C4CBD5"></i>לא משובץ</span>
+      <span><i style="background:var(--ok)"></i>השבוע</span>
+      <span><i style="background:var(--brand)"></i>📌 קבוע</span>
+    </div>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="openEmployees()">סיום</button></div>
 </div>
 
 <!-- Availability -->
@@ -308,8 +327,16 @@ function dOf(i){const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;}
 function fmt(d){return d.getDate()+'.'+(d.getMonth()+1);}
 function loc(){return S.locations.find(l=>l.id===S.cur);}
 function cellKey(di,sh){return di+'-'+sh;}
-function getCell(di,sh){const a=((S.sched[S.cur]||{})[wkKey()]||{})[cellKey(di,sh)];return a||[];}
+function getCell(di,sh){
+  const w=(S.sched[S.cur]||{})[wkKey()];
+  if(w&&w[cellKey(di,sh)]!==undefined)return w[cellKey(di,sh)];
+  return getFix(di,sh).map(a=>({...a}));
+}
 function setCell(di,sh,arr){S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save();}
+/* משמרות קבועות: תבנית שממלאת כל שבוע חדש אוטומטית */
+function getFix(di,sh){return(((S.fixed||{})[S.cur])||{})[cellKey(di,sh)]||[];}
+function setFix(di,sh,arr){S.fixed=S.fixed||{};S.fixed[S.cur]=S.fixed[S.cur]||{};S.fixed[S.cur][cellKey(di,sh)]=arr;save();}
+function isFixed(empId,di,sh){return !!getFix(di,sh).find(a=>a.empId===empId);}
 function getAv(empId,di,sh){return((((S.avail[S.cur]||{})[wkKey()]||{})[empId]||{})[cellKey(di,sh)])||'unk';}
 function setAv(empId,di,sh,v){S.avail[S.cur]=S.avail[S.cur]||{};const w=S.avail[S.cur][wkKey()]=S.avail[S.cur][wkKey()]||{};w[empId]=w[empId]||{};w[empId][cellKey(di,sh)]=v;save();}
 
@@ -357,7 +384,7 @@ function render(){
         const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
         const chip=document.createElement('button');
         chip.className='emp-chip'+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
-        chip.innerHTML=emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
+        chip.innerHTML=(isFixed(emp.id,di,sh.id)?'📌 ':'')+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
         chip.onclick=()=>openCell(di,sh.id);
         body.appendChild(chip);
       });
@@ -406,13 +433,22 @@ function renderCellList(){
     const avLbl={yes:'זמין',no:'לא זמין',unk:'זמינות לא ידועה'}[av];
     row.innerHTML='<div class="avail-dot avail-'+av+'">'+avTxt+'</div>'+
       '<div class="assign-name">'+emp.name+'<small>'+avLbl+'</small></div>'+
+      '<button class="role-toggle pin-btn'+(isFixed(emp.id,di,sh)?' pin-on':'')+'">📌</button>'+
       '<button class="role-toggle hrs-btn">🕐 '+(asn&&asn.hrs?asn.hrs:'שעות')+'</button>'+
       '<button class="role-toggle '+((asn?asn.role:emp.role)==='store'?'store':'')+'">'+(((asn?asn.role:emp.role)==='store')?'חנות':'קופה')+'</button>'+
       '<div class="assign-check">✓</div>';
-    row.querySelectorAll('.role-toggle')[1].onclick=(ev)=>{
+    row.querySelectorAll('.role-toggle')[2].onclick=(ev)=>{
       ev.stopPropagation();
       const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);if(!a)return;
       a.role=a.role==='store'?'cash':'store';setCell(di,sh,arr);renderCellList();
+    };
+    row.querySelector('.pin-btn').onclick=(ev)=>{
+      ev.stopPropagation();
+      const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);if(!a){toast('שבץ את העובד קודם, ואז נעץ');return;}
+      let fx=getFix(di,sh);
+      if(isFixed(emp.id,di,sh)){fx=fx.filter(f=>f.empId!==emp.id);toast(emp.name+' הוסר מהמשמרות הקבועות');}
+      else{fx=[...fx,{empId:emp.id,role:a.role,hrs:a.hrs||''}];toast(emp.name+' 📌 קבוע במשמרת זו בכל שבוע');}
+      setFix(di,sh,fx);renderCellList();
     };
     row.querySelector('.hrs-btn').onclick=async(ev)=>{
       ev.stopPropagation();
@@ -451,7 +487,8 @@ function renderEmpList(){
     const it=document.createElement('div');it.className='emp-item';
     it.innerHTML='<div class="emp-avatar">'+emp.name.slice(0,1)+'</div>'+
       '<div class="emp-info"><b>'+emp.name+'</b><small>'+(emp.phone||'ללא טלפון')+' · '+(emp.role==='store'?'חנות':'קופה')+'</small></div>'+
-      '<button class="emp-btn av">🗓 זמינות</button><button class="emp-btn ed">✏️</button>';
+      '<button class="emp-btn ea">📅 שיבוץ</button><button class="emp-btn av">🗓 זמינות</button><button class="emp-btn ed">✏️</button>';
+    it.querySelector('.ea').onclick=()=>openEmpAssign(emp.id);
     it.querySelector('.av').onclick=()=>openAvail(emp.id);
     it.querySelector('.ed').onclick=()=>openEmpForm(emp.id);
     body.appendChild(it);
@@ -513,6 +550,44 @@ function parseVcfText(txt){
     if(name)out.push({name,phone:(tel||'').trim()});
   });
   return out;
+}
+
+/* ---- שיבוץ לפי עובד ---- */
+function openEmpAssign(empId){
+  const emp=loc().employees.find(e=>e.id===empId);
+  document.getElementById('eaTitle').textContent='שיבוץ · '+emp.name;
+  document.getElementById('eaWeek').textContent='שבוע '+fmt(dOf(0))+' – '+fmt(dOf(6))+' · לחיצה מחליפה: לא משובץ ← השבוע ← 📌 קבוע (כל שבוע)';
+  const g=document.getElementById('eaGrid');
+  let html='<tr><th></th>'+SHIFTS.map(s=>'<th>'+s.ico+' '+s.name+'</th>').join('')+'</tr>';
+  DAYS.forEach((dn,di)=>{
+    html+='<tr><th style="text-align:right">'+dn+'</th>';
+    SHIFTS.forEach(sh=>{
+      const asn=!!getCell(di,sh.id).find(c=>c.empId===empId);
+      const fx=isFixed(empId,di,sh.id);
+      const cls=fx?'fx':asn?'yes':'';
+      const lbl=fx?'📌':asn?'✓':'—';
+      html+='<td><button class="av-cell '+cls+'" data-d="'+di+'" data-s="'+sh.id+'">'+lbl+'</button></td>';
+    });
+    html+='</tr>';
+  });
+  g.innerHTML=html;
+  g.querySelectorAll('.av-cell').forEach(b=>b.onclick=()=>{
+    const di=+b.dataset.d,sh=b.dataset.s;
+    let arr=getCell(di,sh);
+    const asn=!!arr.find(c=>c.empId===empId);
+    const fx=isFixed(empId,di,sh);
+    if(fx){ /* קבוע -> הסרה מלאה */
+      setFix(di,sh,getFix(di,sh).filter(f=>f.empId!==empId));
+      setCell(di,sh,arr.filter(c=>c.empId!==empId));
+    }else if(asn){ /* השבוע -> קבוע */
+      const a=arr.find(c=>c.empId===empId);
+      setFix(di,sh,[...getFix(di,sh),{empId,role:a.role,hrs:a.hrs||''}]);
+    }else{ /* לא משובץ -> השבוע */
+      setCell(di,sh,[...arr,{empId,role:emp.role||'cash'}]);
+    }
+    openEmpAssign(empId);
+  });
+  openSheet('eaSheet');
 }
 
 /* ---- ספר טלפונים ---- */
@@ -621,6 +696,7 @@ document.getElementById('btnDelEmp').onclick=async()=>{
   if(!(await askConfirm('למחוק את העובד? השיבוצים שלו יוסרו.')))return;
   loc().employees=loc().employees.filter(e=>e.id!==editEmpId);
   const ws=S.sched[S.cur]||{};Object.values(ws).forEach(w=>{Object.keys(w).forEach(k=>{w[k]=w[k].filter(c=>c.empId!==editEmpId);});});
+  const fx=(S.fixed||{})[S.cur]||{};Object.keys(fx).forEach(k=>{fx[k]=fx[k].filter(c=>c.empId!==editEmpId);});
   save();openEmployees();
 };
 
@@ -665,6 +741,24 @@ document.getElementById('btnRenameLoc').onclick=async()=>{
 /* ================= Week nav ================= */
 document.getElementById('wkPrev').onclick=()=>{weekStart.setDate(weekStart.getDate()-7);render();};
 document.getElementById('wkNext').onclick=()=>{weekStart.setDate(weekStart.getDate()+7);render();};
+document.getElementById('wkCopy').onclick=async()=>{
+  const prev=new Date(weekStart);prev.setDate(prev.getDate()-7);
+  const pk=prev.toISOString().slice(0,10);
+  const locSched=S.sched[S.cur]||{};
+  const src={};
+  DAYS.forEach((_,di)=>SHIFTS.forEach(sh=>{
+    const k=cellKey(di,sh.id);
+    const w=locSched[pk];
+    const arr=(w&&w[k]!==undefined)?w[k]:getFix(di,sh.id);
+    if(arr&&arr.length)src[k]=arr.map(a=>({...a}));
+  }));
+  if(!Object.keys(src).length){toast('אין שיבוצים בשבוע הקודם');return;}
+  const curW=locSched[wkKey()];
+  const hasData=curW&&Object.values(curW).some(a=>a.length);
+  if(hasData&&!(await askConfirm('השבוע הנוכחי כבר מכיל שיבוצים. להחליף אותם בלוז של השבוע הקודם?')))return;
+  S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=src;
+  save();render();toast('הלוז הועתק מהשבוע הקודם ✓');
+};
 
 /* ================= Print & Share ================= */
 function buildPrint(){
