@@ -230,6 +230,11 @@ main{padding:12px}
 .fill-sh .em{display:block;font-size:16px;margin-bottom:2px}
 .fill-sh.yes{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
 .fill-sh.no{border-color:var(--no);background:var(--no-bg);color:var(--no)}
+#lockScreen{position:fixed;inset:0;z-index:2000;background:linear-gradient(160deg,#1B4965,#122f42);display:flex;align-items:center;justify-content:center;padding:22px;overflow:auto}
+.lock-card{background:#fff;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,.3);width:100%;max-width:360px;padding:28px 22px;text-align:center}
+.lock-badge{width:64px;height:64px;border-radius:18px;background:var(--brand-soft);display:inline-flex;align-items:center;justify-content:center;font-size:32px;margin:0 auto 12px}
+.lock-card h2{font-size:20px;color:var(--brand);margin-bottom:8px}
+.lock-card p{font-size:14px;color:var(--muted);line-height:1.6;margin-bottom:18px;white-space:pre-line}
 </style>
 </head>
 <body>
@@ -273,6 +278,16 @@ main{padding:12px}
 <div id="fillScreen">
   <div class="fill-head"><h1 id="fillStoreName">…</h1><p>מילוי זמינות למשמרות</p></div>
   <div class="fill-wrap" id="fillWrap"><div class="fill-card">טוען…</div></div>
+</div>
+
+<div id="lockScreen" style="display:none">
+  <div class="lock-card">
+    <div class="lock-badge">🔒</div>
+    <h2 id="lockTitle">אין גישה</h2>
+    <p id="lockMsg"></p>
+    <button class="auth-btn" id="btnLockOut">התנתקות</button>
+    <button class="auth-link" id="btnLockRefresh" style="display:none">רענן/י</button>
+  </div>
 </div>
 
 <header>
@@ -1350,23 +1365,23 @@ let sb=null,_booted=false;
 async function bootApp(){
   if(_booted)return;_booted=true;
   try{await acceptInvites();}catch(e){}
-  try{await cloudLoad();}catch(e){if(typeof toast==='function')toast('שגיאת טעינה מהענן, נסה לרענן');}
-  if(!S.locations.length){
-    let hasLocal=false;try{const r=localStorage.getItem('sched-v1');if(r){const o=JSON.parse(r);hasLocal=!!(o.locations&&o.locations.length);}}catch(e){}
-    if(hasLocal){
-      if(await askConfirm('נמצאו נתונים קיימים במכשיר. לייבא אותם לחשבון בענן עכשיו?')){
-        try{await importLocalToCloud();await cloudLoad();toast('הנתונים יובאו לענן בהצלחה');}
-        catch(e){toast('הייבוא נכשל — אפשר לנסות שוב מהגדרות');}
-      }
-    }
-    if(!S.locations.length){try{await createBranch('סניף 1');}catch(e){}}
-  }
-  if(!S.locations.length){if(typeof toast==='function')toast('לא ניתן לטעון נתונים — רענן את הדף');return;}
+  var loaded=false;
+  try{await cloudLoad();loaded=true;}catch(e){}
+  if(!loaded){showLocked('בעיית תקשורת עם השרת.\nבדוק/י חיבור לאינטרנט ורענן/י.',true);return;}
+  if(!S.locations.length){showLocked('הוסרת מהסניף או שטרם הוזמנת.\nאין לך גישה לאף סניף — פנה/י לבעל/ת העסק.',false);return;}
+  hideLocked();
   render();
 }
 function aMsg(t,kind){const m=document.getElementById('authMsg');if(!t){m.className='auth-msg';m.textContent='';return;}m.textContent=t;m.className='auth-msg '+(kind||'err');}
 function authMode(m){['login','signup','forgot','reset'].forEach(x=>{document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===m);});aMsg('');}
 function showAuthCard(){document.getElementById('authLoading').style.display='none';document.getElementById('authCard').style.display='block';document.getElementById('authScreen').style.display='flex';}
+function showLocked(msg,isError){
+  document.getElementById('lockTitle').textContent=isError?'שגיאה':'אין גישה';
+  document.getElementById('lockMsg').textContent=msg;
+  document.getElementById('btnLockRefresh').style.display=isError?'block':'none';
+  document.getElementById('lockScreen').style.display='flex';
+}
+function hideLocked(){document.getElementById('lockScreen').style.display='none';}
 function showApp(){document.getElementById('authScreen').style.display='none';bootApp();}
 function heErr(e){const s=(e&&e.message||'').toLowerCase();
   if(s.includes('invalid login'))return 'אימייל או סיסמה שגויים';
@@ -1430,6 +1445,8 @@ document.getElementById('btnLogout').onclick=async()=>{
   if(sb){try{await sb.auth.signOut();}catch(e){}}
   location.replace(REDIRECT);
 };
+document.getElementById('btnLockOut').onclick=async()=>{if(sb){try{await sb.auth.signOut();}catch(e){}}location.replace(REDIRECT);};
+document.getElementById('btnLockRefresh').onclick=()=>location.reload();
 initAuth();
 </script>
 </body>
