@@ -6,6 +6,7 @@
 <title>סידור עבודה שבועי</title>
 <!-- v1.1 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
 <style>
 :root{
   --ink:#1E2733; --muted:#6B7686; --line:#E3E7ED; --bg:#F3F5F8; --card:#FFFFFF;
@@ -181,12 +182,70 @@ main{padding:12px}
 .dlg-btns{display:flex;gap:8px}
 .dlg-btns .btn{flex:1;margin:0}
 .srch{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;margin-top:10px;font-size:15px;background:var(--bg)}
+
+/* ---------- Auth ---------- */
+#authScreen{position:fixed;inset:0;z-index:1000;background:linear-gradient(160deg,#1B4965,#122f42);display:flex;align-items:center;justify-content:center;padding:22px;overflow:auto}
+.auth-card{background:#fff;border-radius:20px;box-shadow:0 20px 50px rgba(0,0,0,.3);width:100%;max-width:380px;padding:26px 22px}
+.auth-logo{text-align:center;margin-bottom:18px}
+.auth-logo .badge{width:64px;height:64px;border-radius:18px;background:var(--brand-soft);display:inline-flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:10px}
+.auth-logo h2{font-size:20px;color:var(--brand)}
+.auth-logo p{font-size:13px;color:var(--muted);margin-top:3px}
+.auth-panel{display:none}
+.auth-panel.on{display:block}
+.auth-field{margin-bottom:12px}
+.auth-field label{display:block;font-size:13px;color:var(--muted);margin-bottom:5px}
+.auth-field input{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:12px;background:var(--bg)}
+.auth-btn{width:100%;padding:13px;border-radius:12px;background:var(--brand);color:#fff;font-weight:800;font-size:15px;margin-top:4px}
+.auth-btn:disabled{opacity:.6}
+.auth-link{display:block;width:100%;text-align:center;color:var(--brand);font-size:13.5px;font-weight:700;margin-top:12px;background:none}
+.auth-msg{margin-top:14px;padding:10px 12px;border-radius:10px;font-size:13.5px;display:none;line-height:1.5}
+.auth-msg.err{display:block;background:var(--no-bg);color:var(--no)}
+.auth-msg.ok{display:block;background:var(--ok-bg);color:var(--ok)}
+#authLoading{color:#fff;text-align:center;font-size:15px}
 </style>
 </head>
 <body>
 
+<div id="authScreen">
+  <div id="authLoading">טוען…</div>
+  <div class="auth-card" id="authCard" style="display:none">
+    <div class="auth-logo"><div class="badge">📋</div><h2>סידור עבודה שבועי</h2><p>Shifts · ניהול משמרות</p></div>
+
+    <div class="auth-panel on" id="pLogin">
+      <div class="auth-field"><label>אימייל</label><input id="liEmail" type="email" inputmode="email" autocomplete="username" placeholder="name@email.com"></div>
+      <div class="auth-field"><label>סיסמה</label><input id="liPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
+      <button class="auth-btn" id="btnLogin">כניסה</button>
+      <button class="auth-link" onclick="authMode('forgot')">שכחתי סיסמה</button>
+      <button class="auth-link" onclick="authMode('signup')">אין לך חשבון? להרשמה</button>
+    </div>
+
+    <div class="auth-panel" id="pSignup">
+      <div class="auth-field"><label>שם מלא</label><input id="suName" placeholder="השם שלך"></div>
+      <div class="auth-field"><label>אימייל</label><input id="suEmail" type="email" inputmode="email" autocomplete="username" placeholder="name@email.com"></div>
+      <div class="auth-field"><label>סיסמה (לפחות 6 תווים)</label><input id="suPass" type="password" autocomplete="new-password" placeholder="••••••••"></div>
+      <button class="auth-btn" id="btnSignup">הרשמה</button>
+      <button class="auth-link" onclick="authMode('login')">כבר יש לך חשבון? לכניסה</button>
+    </div>
+
+    <div class="auth-panel" id="pForgot">
+      <div class="auth-field"><label>אימייל לאיפוס סיסמה</label><input id="fgEmail" type="email" inputmode="email" placeholder="name@email.com"></div>
+      <button class="auth-btn" id="btnForgot">שליחת קישור איפוס</button>
+      <button class="auth-link" onclick="authMode('login')">חזרה לכניסה</button>
+    </div>
+
+    <div class="auth-panel" id="pReset">
+      <div class="auth-field"><label>סיסמה חדשה (לפחות 6 תווים)</label><input id="rsPass" type="password" autocomplete="new-password" placeholder="••••••••"></div>
+      <button class="auth-btn" id="btnReset">עדכון סיסמה</button>
+    </div>
+
+    <div class="auth-msg" id="authMsg"></div>
+  </div>
+</div>
+
 <header>
-  <h1>📋 סידור עבודה <button id="btnRenameLoc" style="font-size:12px;background:rgba(255,255,255,.14);padding:5px 10px;border-radius:8px;color:#fff">שינוי שם סניף</button></h1>
+  <h1>📋 סידור עבודה
+    <button id="btnRenameLoc" style="font-size:12px;background:rgba(255,255,255,.14);padding:5px 10px;border-radius:8px;color:#fff">שינוי שם סניף</button>
+    <button id="btnLogout" style="font-size:12px;background:rgba(255,255,255,.14);padding:5px 10px;border-radius:8px;color:#fff">יציאה</button></h1>
   <div class="loc-tabs" id="locTabs"></div>
 </header>
 
@@ -977,7 +1036,77 @@ document.getElementById('btnGrid').onclick=openGrid;
   document.addEventListener('touchmove',function(e){if(!active||sY===null)return;if(blocked()||!atTop()){active=false;ind.classList.remove('show');return;}dist=e.touches[0].clientY-sY;if(dist>6){ind.classList.add('show');ind.style.transform='translate(-50%,'+Math.min(dist,90)+'px)';ind.textContent=dist>TH?'↑ שחרר לרענון':'↓ משוך לרענון';}},{passive:true});
   document.addEventListener('touchend',function(){if(!active)return;active=false;ind.classList.remove('show');ind.style.transform='';var go=dist>TH&&atTop()&&!blocked();sY=null;dist=0;if(go)location.replace(location.pathname+'?v='+Date.now());},{passive:true});
 })();
-load().then(render);
+/* ===== Supabase auth ===== */
+const SB_URL='https://ejdchhqnsckvaleoklnq.supabase.co';
+const SB_KEY='sb_publishable_XRrLkf9ip-frrCrPQ-oEaA_hhMJp9cV';
+const REDIRECT='https://yanivc2.github.io/Shifts/';
+let sb=null,_booted=false;
+function bootApp(){if(_booted)return;_booted=true;load().then(render);}
+function aMsg(t,kind){const m=document.getElementById('authMsg');if(!t){m.className='auth-msg';m.textContent='';return;}m.textContent=t;m.className='auth-msg '+(kind||'err');}
+function authMode(m){['login','signup','forgot','reset'].forEach(x=>{document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===m);});aMsg('');}
+function showAuthCard(){document.getElementById('authLoading').style.display='none';document.getElementById('authCard').style.display='block';document.getElementById('authScreen').style.display='flex';}
+function showApp(){document.getElementById('authScreen').style.display='none';bootApp();}
+function heErr(e){const s=(e&&e.message||'').toLowerCase();
+  if(s.includes('invalid login'))return 'אימייל או סיסמה שגויים';
+  if(s.includes('already registered')||s.includes('already been'))return 'האימייל כבר רשום — נסה להתחבר';
+  if(s.includes('password')&&s.includes('6'))return 'הסיסמה חייבת להיות לפחות 6 תווים';
+  if(s.includes('valid')&&s.includes('email'))return 'כתובת אימייל לא תקינה';
+  if(s.includes('rate'))return 'יותר מדי ניסיונות — נסה שוב בעוד רגע';
+  return (e&&e.message)||'שגיאה, נסה שוב';}
+async function initAuth(){
+  const recovery=(location.hash+location.search).includes('type=recovery');
+  if(typeof supabase==='undefined'){showAuthCard();aMsg('טעינת מערכת ההתחברות נכשלה. בדוק חיבור לאינטרנט ורענן.');return;}
+  sb=supabase.createClient(SB_URL,SB_KEY);
+  sb.auth.onAuthStateChange((event,session)=>{
+    if(event==='PASSWORD_RECOVERY'){showAuthCard();authMode('reset');return;}
+    if(session&&!recovery){showApp();}
+  });
+  const {data:{session}}=await sb.auth.getSession();
+  if(recovery){showAuthCard();authMode('reset');return;}
+  if(session){showApp();}else{showAuthCard();authMode('login');}
+}
+document.getElementById('btnLogin').onclick=async()=>{
+  const b=document.getElementById('btnLogin'),email=document.getElementById('liEmail').value.trim(),pass=document.getElementById('liPass').value;
+  if(!email||!pass){aMsg('מלא אימייל וסיסמה');return;}
+  b.disabled=true;aMsg('');
+  const {error}=await sb.auth.signInWithPassword({email,password:pass});
+  b.disabled=false;if(error)aMsg(heErr(error));
+};
+document.getElementById('btnSignup').onclick=async()=>{
+  const b=document.getElementById('btnSignup'),name=document.getElementById('suName').value.trim(),email=document.getElementById('suEmail').value.trim(),pass=document.getElementById('suPass').value;
+  if(!email||!pass){aMsg('מלא אימייל וסיסמה');return;}
+  if(pass.length<6){aMsg('הסיסמה חייבת להיות לפחות 6 תווים');return;}
+  b.disabled=true;aMsg('');
+  const {data,error}=await sb.auth.signUp({email,password:pass,options:{data:{name},emailRedirectTo:REDIRECT}});
+  b.disabled=false;
+  if(error){aMsg(heErr(error));return;}
+  if(!(data&&data.session)){aMsg('נשלח אליך מייל אישור. פתח את הקישור שבמייל להשלמת ההרשמה, ואז חזור והתחבר.','ok');authMode('login');}
+};
+document.getElementById('btnForgot').onclick=async()=>{
+  const b=document.getElementById('btnForgot'),email=document.getElementById('fgEmail').value.trim();
+  if(!email){aMsg('מלא אימייל');return;}
+  b.disabled=true;aMsg('');
+  const {error}=await sb.auth.resetPasswordForEmail(email,{redirectTo:REDIRECT});
+  b.disabled=false;
+  if(error){aMsg(heErr(error));return;}
+  aMsg('אם האימייל קיים — נשלח אליו קישור לאיפוס. בדוק את תיבת הדואר (וגם ספאם).','ok');
+};
+document.getElementById('btnReset').onclick=async()=>{
+  const b=document.getElementById('btnReset'),pass=document.getElementById('rsPass').value;
+  if(pass.length<6){aMsg('הסיסמה חייבת להיות לפחות 6 תווים');return;}
+  b.disabled=true;aMsg('');
+  const {error}=await sb.auth.updateUser({password:pass});
+  b.disabled=false;
+  if(error){aMsg(heErr(error));return;}
+  aMsg('הסיסמה עודכנה!','ok');
+  try{history.replaceState(null,'',location.pathname);}catch(e){}
+  setTimeout(()=>location.replace(REDIRECT),900);
+};
+document.getElementById('btnLogout').onclick=async()=>{
+  if(sb){try{await sb.auth.signOut();}catch(e){}}
+  location.replace(REDIRECT);
+};
+initAuth();
 </script>
 </body>
 </html>
