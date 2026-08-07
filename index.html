@@ -168,6 +168,9 @@ main{padding:12px}
 .gt .gempty{color:var(--muted);font-size:16px;font-weight:700}
 #ptrInd{position:fixed;top:0;left:50%;transform:translate(-50%,0);z-index:70;background:var(--brand);color:#fff;font-size:13px;font-weight:700;padding:8px 16px;border-radius:0 0 14px 14px;box-shadow:0 2px 8px rgba(0,0,0,.2);opacity:0;transition:opacity .15s;pointer-events:none;white-space:nowrap}
 #ptrInd.show{opacity:1}
+.emp-chip.derived{opacity:.72}
+.pemp.derived{opacity:.72}
+.gemp.derived{opacity:.72}
 .toast{position:fixed;bottom:100px;right:50%;transform:translateX(50%);background:var(--ink);color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:99;opacity:0;transition:opacity .25s;pointer-events:none}
 .toast.show{opacity:1}
 .dlg-wrap{position:fixed;inset:0;background:rgba(15,25,40,.5);z-index:80;display:none;align-items:center;justify-content:center;padding:24px}
@@ -372,6 +375,27 @@ function getCell(di,sh){
   if(w&&w[cellKey(di,sh)]!==undefined)return w[cellKey(di,sh)];
   return getFix(di,sh).map(a=>({...a}));
 }
+
+/* קופה קודם + עובד בוקר שממשיך אחרי 21:00 מוצג גם בערב */
+function shiftEndsLate(hrs){
+  if(!hrs)return false;
+  var m=String(hrs).match(/(\d{1,2})(?::\d{2})?\s*[-\u2013]\s*(\d{1,2})(?::\d{2})?/);
+  if(!m)return false;
+  var s=parseInt(m[1],10),e=parseInt(m[2],10);
+  if(isNaN(s)||isNaN(e)||s===e)return false;
+  return e<s?true:e>=21;
+}
+function sortRole(arr){
+  return arr.map(function(a,i){return [a,i];}).sort(function(x,y){var rx=x[0].role==='store'?1:0,ry=y[0].role==='store'?1:0;return rx-ry||x[1]-y[1];}).map(function(p){return p[0];});
+}
+function displayCell(di,shId){
+  var base=sortRole(getCell(di,shId).map(function(a){return {empId:a.empId,role:a.role,hrs:a.hrs,derived:false};}));
+  if(shId!=='e')return base;
+  var have={};base.forEach(function(a){have[a.empId]=1;});
+  var spill=[];
+  getCell(di,'m').forEach(function(a){if(shiftEndsLate(a.hrs)&&!have[a.empId]){have[a.empId]=1;spill.push({empId:a.empId,role:a.role,hrs:a.hrs,derived:true});}});
+  return base.concat(sortRole(spill));
+}
 function setCell(di,sh,arr){S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save();}
 /* משמרות קבועות: תבנית שממלאת כל שבוע חדש אוטומטית */
 function getFix(di,sh){return(((S.fixed||{})[S.cur])||{})[cellKey(di,sh)]||[];}
@@ -420,15 +444,15 @@ function render(){
       const row=document.createElement('div');row.className='shift-row';
       const lab=document.createElement('div');lab.className='shift-label sl-'+sh.cls;lab.innerHTML='<span>'+sh.ico+'</span>'+sh.name;
       const body=document.createElement('div');body.className='shift-body';
-      getCell(di,sh.id).forEach(a=>{
+      displayCell(di,sh.id).forEach(a=>{
         const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
         const chip=document.createElement('button');
-        chip.className='emp-chip'+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
-        chip.innerHTML=(isFixed(emp.id,di,sh.id)?'📌 ':'')+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
+        chip.className='emp-chip'+(a.derived?' derived':'')+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
+        chip.innerHTML=(a.derived?'☀️ ':(isFixed(emp.id,di,sh.id)?'📌 ':''))+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
         chip.onclick=()=>openCell(di,sh.id);
         body.appendChild(chip);
       });
-      if(!getCell(di,sh.id).length){const h=document.createElement('span');h.className='empty-hint';h.textContent='ללא שיבוץ';body.appendChild(h);}
+      if(!displayCell(di,sh.id).length){const h=document.createElement('span');h.className='empty-hint';h.textContent='ללא שיבוץ';body.appendChild(h);}
       const plus=document.createElement('button');plus.className='cell-add';plus.textContent='+';plus.onclick=()=>openCell(di,sh.id);
       body.appendChild(plus);
       row.appendChild(lab);row.appendChild(body);card.appendChild(row);
@@ -815,9 +839,9 @@ function buildPrint(){
     html+='<tr><td class="sh sh-'+sh.cls+'">'+sh.ico+'<br>'+sh.name+'</td>';
     DAYS.forEach((dn,di)=>{
       html+='<td>';
-      getCell(di,sh.id).forEach(a=>{
+      displayCell(di,sh.id).forEach(a=>{
         const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
-        html+='<div class="pemp">'+emp.name+(a.hrs?' <span style="font-size:11px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</i></div>';
+        html+='<div class="pemp'+(a.derived?' derived':'')+'">'+(a.derived?'☀️ ':'')+emp.name+(a.hrs?' <span style="font-size:11px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</i></div>';
       });
       html+='</td>';
     });
@@ -856,11 +880,11 @@ function buildGridScreen(){
     html+='<tr><td class="sh sh-'+sh.cls+'">'+sh.ico+'<br>'+sh.name+'</td>';
     DAYS.forEach(function(dn,di){
       html+='<td class="cell" onclick="openCell('+di+',\''+sh.id+'\')">';
-      var cell=getCell(di,sh.id);
+      var cell=displayCell(di,sh.id);
       if(!cell.length)html+='<span class="gempty">+</span>';
       cell.forEach(function(a){
         var emp=loc().employees.find(function(e){return e.id===a.empId;});if(!emp)return;
-        html+='<div class="gemp">'+(isFixed(emp.id,di,sh.id)?'📌':'')+emp.name+(a.hrs?' <span style="font-size:10px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
+        html+='<div class="gemp'+(a.derived?' derived':'')+'">'+(a.derived?'☀️':(isFixed(emp.id,di,sh.id)?'📌':''))+emp.name+(a.hrs?' <span style="font-size:10px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
       });
       html+='</td>';
     });
