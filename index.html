@@ -223,8 +223,7 @@ main{padding:12px}
   <div class="sheet-body" id="empBody"></div>
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
-    <button class="btn btn-ghost" id="btnSmartPaste">📋 הדבקה חכמה (שם + מספר)</button>
-    <button class="btn btn-ghost" id="btnPickContacts">📇 בחירה מאנשי הקשר</button>
+    <button class="btn btn-ghost" id="btnSmartPaste">➕ הוספת מספר עובדים</button>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-ghost" id="btnBackup" style="margin:0">💾 גיבוי נתונים</button>
       <button class="btn btn-ghost" id="btnRestore" style="margin:0">♻️ שחזור מגיבוי</button>
@@ -240,7 +239,8 @@ main{padding:12px}
   <div class="sheet-head"><h2 id="empFormTitle">עובד חדש</h2></div>
   <div class="sheet-body">
     <div class="field"><label>שם העובד</label><input id="fName" placeholder="לדוגמה: דני לוי"></div>
-    <div class="field"><label>טלפון (וואטסאפ)</label><input id="fPhone" inputmode="tel" placeholder="050-1234567"></div>
+    <div class="field"><label>טלפון (וואטסאפ)</label><input id="fPhone" inputmode="tel" placeholder="050-1234567">
+      <button class="btn btn-ghost" id="btnPhoneFromContacts" style="margin-top:6px">📇 מספר מאנשי הקשר</button></div>
     <div class="field"><label>תפקיד ברירת מחדל</label>
       <select id="fRole"><option value="cash">קופה</option><option value="store">חנות</option></select></div>
   </div>
@@ -248,6 +248,15 @@ main{padding:12px}
     <button class="btn btn-primary" id="btnSaveEmp">שמירה</button>
     <button class="btn btn-ghost" id="btnDelEmp" style="color:var(--no)">מחיקת עובד</button>
     <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
+  </div>
+</div>
+
+<div class="sheet" id="roleReviewSheet">
+  <div class="sheet-head"><h2>בחירת תפקיד לעובדים</h2><p>בחר קופה או חנות לכל עובד לפני ההוספה</p></div>
+  <div class="sheet-body" id="roleReviewBody"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" id="btnRoleReviewAdd">הוספה</button>
+    <button class="btn btn-ghost" onclick="openEmployees()">ביטול</button>
   </div>
 </div>
 
@@ -563,19 +572,7 @@ document.getElementById('btnEmps').onclick=openEmployees;
 document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
 
 /* ---- הדבקה חכמה: "דני לוי 0501234567" -> שם + טלפון ---- */
-document.getElementById('btnSmartPaste').onclick=async()=>{
-  const raw=await askText('הדבק שם ומספר (בשורה אחת או כמה שורות)','','דני לוי 050-1234567');
-  if(!raw||!raw.trim())return;
-  let n=0;
-  raw.split(/\n+/).forEach((line,i)=>{
-    const phone=(line.match(/(\+?972[\d\- ]{8,}|0\d[\d\- ]{7,})/)||[])[0]||'';
-    const name=line.replace(phone,'').replace(/[,;:|]+/g,' ').replace(/\s+/g,' ').trim();
-    if(!name)return;
-    if(loc().employees.find(e=>e.name===name))return;
-    loc().employees.push({id:'E'+Date.now()+'_p'+i,name,phone:phone.trim(),role:'cash'});n++;
-  });
-  save();toast(n?'נוספו '+n+' עובדים':'לא זוהה שם תקין');renderEmpList();
-};
+document.getElementById('btnSmartPaste').onclick=()=>startAddEmployees();
 
 /* ---- גיבוי ושחזור ---- */
 document.getElementById('btnBackup').onclick=async()=>{
@@ -704,24 +701,57 @@ document.getElementById('btnPbClear').onclick=async()=>{
 };
 
 /* ---- ייבוא מאנשי קשר (Contact Picker API) ---- */
-document.getElementById('btnPickContacts').onclick=async()=>{
-  if(!('contacts' in navigator)){
-    await askConfirm('באייפון הפיצ׳ר כבוי כברירת מחדל. להפעלה: הגדרות ← Safari ← מתקדם ← Feature Flags ← הפעל Contact Picker API, ואז רענן. לחלופין השתמש בייבוא קובץ מוואטסאפ.');
-    return;
-  }
+/* ---- הוספת מספר עובדים מאנשי הקשר + בחירת תפקיד ---- */
+let pendingContacts=[];
+function contactsMsg(){return askConfirm('בחירה מאנשי קשר עובדת באנדרואיד. באייפון צריך הפעלה חד-פעמית: הגדרות ← Safari ← מתקדם ← Feature Flags ← הפעל Contact Picker API, ואז רענן.');}
+async function startAddEmployees(){
+  if(!('contacts' in navigator)){await contactsMsg();return;}
+  let picked;
+  try{picked=await navigator.contacts.select(['name','tel'],{multiple:true});}catch(e){return;}
+  if(!picked||!picked.length)return;
+  pendingContacts=[];
+  picked.forEach(c=>{
+    const name=(c.name&&c.name[0]||'').trim();if(!name)return;
+    pendingContacts.push({name,phone:(c.tel&&c.tel[0]||'').trim(),role:'cash'});
+  });
+  if(!pendingContacts.length){toast('לא נבחרו אנשי קשר');return;}
+  renderRoleReview();openSheet('roleReviewSheet');
+}
+function renderRoleReview(){
+  const b=document.getElementById('roleReviewBody');b.innerHTML='';
+  pendingContacts.forEach((c,i)=>{
+    const row=document.createElement('div');row.className='field';
+    row.style.cssText='display:flex;align-items:center;gap:10px;justify-content:space-between';
+    const info=document.createElement('div');
+    info.innerHTML='<strong>'+c.name+'</strong>'+(c.phone?'<br><span style="color:var(--muted);font-size:13px">'+c.phone+'</span>':'');
+    const sel=document.createElement('select');sel.style.cssText='width:auto;min-width:96px';
+    sel.innerHTML='<option value="cash">קופה</option><option value="store">חנות</option>';
+    sel.value=c.role;sel.onchange=()=>{pendingContacts[i].role=sel.value;};
+    row.appendChild(info);row.appendChild(sel);b.appendChild(row);
+  });
+}
+document.getElementById('btnRoleReviewAdd').onclick=()=>{
+  let n=0;
+  pendingContacts.forEach((c,i)=>{
+    if(loc().employees.find(e=>e.name===c.name))return;
+    loc().employees.push({id:'E'+Date.now()+'_c'+i,name:c.name,phone:c.phone,role:c.role});n++;
+  });
+  pendingContacts=[];
+  save();toast(n?'נוספו '+n+' עובדים':'לא נוספו עובדים חדשים');openEmployees();
+};
+/* ---- מילוי מספר מאנשי הקשר בטופס עריכת עובד ---- */
+document.getElementById('btnPhoneFromContacts').onclick=async()=>{
+  if(!('contacts' in navigator)){await contactsMsg();return;}
   try{
-    const picked=await navigator.contacts.select(['name','tel'],{multiple:true});
-    let n=0;
-    picked.forEach(c=>{
-      const name=(c.name&&c.name[0]||'').trim();if(!name)return;
-      if(loc().employees.find(e=>e.name===name))return;
-      loc().employees.push({id:'E'+Date.now()+'_'+n,name,phone:(c.tel&&c.tel[0]||'').trim(),role:'cash'});n++;
-    });
-    save();toast(n?'נוספו '+n+' עובדים':'לא נוספו עובדים חדשים');openEmployees();
-  }catch(e){/* המשתמש ביטל */}
+    const picked=await navigator.contacts.select(['name','tel'],{multiple:false});
+    if(!picked||!picked.length)return;
+    const c=picked[0];
+    const tel=(c.tel&&c.tel[0]||'').trim();
+    if(tel)document.getElementById('fPhone').value=tel;
+    if(!document.getElementById('fName').value.trim()){const nm=(c.name&&c.name[0]||'').trim();if(nm)document.getElementById('fName').value=nm;}
+  }catch(e){}
 };
 
-/* ---- ייבוא קובץ vCard (שיתוף איש קשר מוואטסאפ/אנשי קשר) ---- */
 document.getElementById('vcfFile').onchange=async(ev)=>{
   let n=0;
   for(const f of ev.target.files){
