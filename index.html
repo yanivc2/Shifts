@@ -287,6 +287,7 @@ main{padding:12px}
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-ghost" id="btnBackup" style="margin:0">💾 גיבוי נתונים</button>
       <button class="btn btn-ghost" id="btnRestore" style="margin:0">♻️ שחזור מגיבוי</button>
+      <button class="btn btn-ghost" id="btnImportCloud" style="margin:0">☁️ ייבוא נתוני המכשיר לענן</button>
     </div>
     <button class="btn btn-ghost" onclick="closeSheets()">סגירה</button>
   </div>
@@ -433,10 +434,58 @@ let saveT,localOK=null,remoteOK=null;
 function save(){
   const data=JSON.stringify(S);
   try{localStorage.setItem('sched-v1',data);localOK=true;}catch(e){localOK=false;}
+  const cur=S.cur;
   clearTimeout(saveT);saveT=setTimeout(async()=>{
-    try{await window.storage.set('sched-v1',data);remoteOK=true;}catch(e){remoteOK=false;}
-    if(localOK===false&&remoteOK===false&&!memOnly){memOnly=true;toast('שים לב: הדפדפן חוסם שמירה - הנתונים זמניים');}
-  },400);
+    try{await cloudSaveBranch(cur);remoteOK=true;}catch(e){remoteOK=false;}
+  },500);
+}
+
+/* ===== Cloud data layer (Supabase) ===== */
+async function cloudLoad(){
+  S={locations:[],sched:{},avail:{},cur:null};
+  const {data:stores,error:e1}=await sb.from('stores').select('id,name,created_at').order('created_at',{ascending:true});
+  if(e1)throw e1;
+  let blobs=[];
+  if(stores&&stores.length){
+    const {data:rows,error:e2}=await sb.from('store_data').select('store_id,data');
+    if(e2)throw e2;
+    blobs=rows||[];
+  }
+  (stores||[]).forEach(st=>{
+    const b=((blobs.find(r=>r.store_id===st.id)||{}).data)||{};
+    S.locations.push({id:st.id,name:(b.name||st.name),employees:(b.employees||[])});
+    S.sched[st.id]=b.sched||{};
+    S.avail[st.id]=b.avail||{};
+  });
+  if(S.locations.length)S.cur=S.locations[0].id;
+}
+function branchBlob(locId){
+  const l=S.locations.find(x=>x.id===locId)||{};
+  return {name:l.name||'',employees:l.employees||[],sched:S.sched[locId]||{},avail:S.avail[locId]||{}};
+}
+async function cloudSaveBranch(locId){
+  if(!sb||!locId)return;
+  await sb.from('store_data').upsert({store_id:locId,data:branchBlob(locId),updated_at:new Date().toISOString()});
+}
+async function createBranch(name){
+  const {data,error}=await sb.rpc('create_store',{p_name:name});
+  if(error)throw error;
+  const id=data;
+  S.locations.push({id,name:name,employees:[]});S.sched[id]={};S.avail[id]={};S.cur=id;
+  await cloudSaveBranch(id);
+  return id;
+}
+async function importLocalToCloud(){
+  let raw=null;try{raw=localStorage.getItem('sched-v1');}catch(e){}
+  if(!raw)throw new Error('no-local');
+  const old=JSON.parse(raw);
+  if(!old.locations||!old.locations.length)throw new Error('no-local');
+  for(const l of old.locations){
+    const {data:id,error}=await sb.rpc('create_store',{p_name:(l.name||'סניף')});
+    if(error)throw error;
+    const blob={name:(l.name||'סניף'),employees:(l.employees||[]),sched:((old.sched||{})[l.id]||{}),avail:((old.avail||{})[l.id]||{})};
+    await sb.from('store_data').upsert({store_id:id,data:blob,updated_at:new Date().toISOString()});
+  }
 }
 
 function sundayOf(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d;}
@@ -505,7 +554,7 @@ function render(){
     b.onclick=()=>{S.cur=l.id;save();render();};tabs.appendChild(b);
   });
   const add=document.createElement('button');add.className='loc-add';add.textContent='+ סניף';
-  add.onclick=async()=>{const n=await askText('שם הסניף החדש','','לדוגמה: סניף רחובות');if(!n||!n.trim())return;const id='L'+Date.now();S.locations.push({id,name:n.trim(),employees:[]});S.cur=id;save();render();};
+  add.onclick=async()=>{const n=await askText('שם הסניף החדש','','לדוגמה: סניף רחובות');if(!n||!n.trim())return;try{await createBranch(n.trim());render();}catch(e){toast('יצירת הסניף נכשלה');}};
   tabs.appendChild(add);
 
   document.getElementById('wkTitle').textContent='שבוע '+fmt(dOf(0))+' – '+fmt(dOf(6));
@@ -692,10 +741,21 @@ document.getElementById('restoreFile').onchange=async(ev)=>{
   try{
     const obj=JSON.parse(await f.text());
     if(!obj.locations||!Array.isArray(obj.locations))throw 0;
-    if(!(await askConfirm('שחזור הגיבוי יחליף את כל הנתונים הנוכחיים. להמשיך?')))return;
-    S=obj;if(!S.locations.find(l=>l.id===S.cur))S.cur=S.locations[0].id;
-    save();toast('הנתונים שוחזרו');closeSheets();
-  }catch(e){toast('קובץ גיבוי לא תקין');}
+    if(!(await askConfirm('הסניפים מקובץ הגיבוי יתווספו לחשבון בענן. להמשיך?')))return;
+    for(const l of obj.locations){
+      const {data:id,error}=await sb.rpc('create_store',{p_name:(l.name||'סניף')});
+      if(error)throw error;
+      const blob={name:(l.name||'סניף'),employees:(l.employees||[]),sched:((obj.sched||{})[l.id]||{}),avail:((obj.avail||{})[l.id]||{})};
+      await sb.from('store_data').upsert({store_id:id,data:blob,updated_at:new Date().toISOString()});
+    }
+    await cloudLoad();render();toast('הגיבוי יובא לענן');closeSheets();
+  }catch(e){toast('שחזור נכשל / קובץ לא תקין');}
+};
+var _bic=document.getElementById('btnImportCloud');
+if(_bic)_bic.onclick=async()=>{
+  if(!(await askConfirm('הנתונים מהמכשיר הזה יתווספו לחשבון בענן. להמשיך?')))return;
+  try{await importLocalToCloud();await cloudLoad();render();toast('הנתונים יובאו לענן');closeSheets();}
+  catch(e){toast(e&&e.message==='no-local'?'אין נתונים מקומיים לייבוא':'הייבוא נכשל, נסה שוב');}
 };
 
 /* ---- פענוח vCard משותף ---- */
@@ -926,7 +986,7 @@ function ilPhone(p){p=p.replace(/[^0-9]/g,'');if(p.startsWith('0'))p='972'+p.sli
 
 /* ---- Rename location ---- */
 document.getElementById('btnRenameLoc').onclick=async()=>{
-  const n=await askText('שם הסניף',loc().name);if(n&&n.trim()){loc().name=n.trim();save();render();}
+  const n=await askText('שם הסניף',loc().name);if(n&&n.trim()){const id=S.cur;loc().name=n.trim();save();render();try{await sb.from('stores').update({name:n.trim()}).eq('id',id);}catch(e){}}
 };
 
 /* ================= Week nav ================= */
@@ -1041,7 +1101,22 @@ const SB_URL='https://ejdchhqnsckvaleoklnq.supabase.co';
 const SB_KEY='sb_publishable_XRrLkf9ip-frrCrPQ-oEaA_hhMJp9cV';
 const REDIRECT='https://yanivc2.github.io/Shifts/';
 let sb=null,_booted=false;
-function bootApp(){if(_booted)return;_booted=true;load().then(render);}
+async function bootApp(){
+  if(_booted)return;_booted=true;
+  try{await cloudLoad();}catch(e){if(typeof toast==='function')toast('שגיאת טעינה מהענן, נסה לרענן');}
+  if(!S.locations.length){
+    let hasLocal=false;try{const r=localStorage.getItem('sched-v1');if(r){const o=JSON.parse(r);hasLocal=!!(o.locations&&o.locations.length);}}catch(e){}
+    if(hasLocal){
+      if(await askConfirm('נמצאו נתונים קיימים במכשיר. לייבא אותם לחשבון בענן עכשיו?')){
+        try{await importLocalToCloud();await cloudLoad();toast('הנתונים יובאו לענן בהצלחה');}
+        catch(e){toast('הייבוא נכשל — אפשר לנסות שוב מהגדרות');}
+      }
+    }
+    if(!S.locations.length){try{await createBranch('סניף 1');}catch(e){}}
+  }
+  if(!S.locations.length){if(typeof toast==='function')toast('לא ניתן לטעון נתונים — רענן את הדף');return;}
+  render();
+}
 function aMsg(t,kind){const m=document.getElementById('authMsg');if(!t){m.className='auth-msg';m.textContent='';return;}m.textContent=t;m.className='auth-msg '+(kind||'err');}
 function authMode(m){['login','signup','forgot','reset'].forEach(x=>{document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===m);});aMsg('');}
 function showAuthCard(){document.getElementById('authLoading').style.display='none';document.getElementById('authCard').style.display='block';document.getElementById('authScreen').style.display='flex';}
