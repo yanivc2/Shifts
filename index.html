@@ -224,10 +224,7 @@ main{padding:12px}
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
     <button class="btn btn-ghost" id="btnSmartPaste">📋 הדבקה חכמה (שם + מספר)</button>
-    <button class="btn btn-ghost" id="btnPhonebook">📖 ספר טלפונים (חיפוש באנשי קשר)</button>
     <button class="btn btn-ghost" id="btnPickContacts">📇 בחירה מאנשי הקשר</button>
-    <button class="btn btn-ghost" id="btnVcf">📎 ייבוא איש קשר מוואטסאפ (קובץ)</button>
-    <button class="btn btn-ghost" id="btnImport">⬇️ ייבוא הצוות מהלוז הידני</button>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-ghost" id="btnBackup" style="margin:0">💾 גיבוי נתונים</button>
       <button class="btn btn-ghost" id="btnRestore" style="margin:0">♻️ שחזור מגיבוי</button>
@@ -564,7 +561,6 @@ function renderEmpList(){
 }
 document.getElementById('btnEmps').onclick=openEmployees;
 document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
-document.getElementById('btnImport').onclick=()=>{const n=mergePreset();toast(n?'נוספו '+n+' עובדים':'כל הצוות כבר קיים');openEmployees();};
 
 /* ---- הדבקה חכמה: "דני לוי 0501234567" -> שם + טלפון ---- */
 document.getElementById('btnSmartPaste').onclick=async()=>{
@@ -688,7 +684,6 @@ function renderPbList(){
   });
   if(total>150){const p=document.createElement('p');p.style.cssText='text-align:center;color:var(--muted);font-size:12.5px;padding:8px';p.textContent='מוצגים 150 מתוך '+total+' — חדד את החיפוש';body.appendChild(p);}
 }
-document.getElementById('btnPhonebook').onclick=openPhonebook;
 document.getElementById('btnPbImport').onclick=()=>document.getElementById('pbFile').click();
 document.getElementById('pbFile').onchange=async(ev)=>{
   S.phonebook=S.phonebook||[];
@@ -727,7 +722,6 @@ document.getElementById('btnPickContacts').onclick=async()=>{
 };
 
 /* ---- ייבוא קובץ vCard (שיתוף איש קשר מוואטסאפ/אנשי קשר) ---- */
-document.getElementById('btnVcf').onclick=()=>document.getElementById('vcfFile').click();
 document.getElementById('vcfFile').onchange=async(ev)=>{
   let n=0;
   for(const f of ev.target.files){
