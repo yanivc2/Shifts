@@ -224,6 +224,7 @@ main{padding:12px}
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
     <button class="btn btn-ghost" id="btnSmartPaste">➕ הוספת מספר עובדים</button>
+    <button class="btn btn-ghost" id="btnWaAvail">📲 בקשת זמינות בוואטסאפ</button>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-ghost" id="btnBackup" style="margin:0">💾 גיבוי נתונים</button>
       <button class="btn btn-ghost" id="btnRestore" style="margin:0">♻️ שחזור מגיבוי</button>
@@ -257,6 +258,15 @@ main{padding:12px}
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnRoleReviewAdd">הוספה</button>
     <button class="btn btn-ghost" onclick="openEmployees()">ביטול</button>
+  </div>
+</div>
+
+<div class="sheet" id="waSheet">
+  <div class="sheet-head"><h2>בקשת זמינות בוואטסאפ</h2><p>ההודעה שתישלח: «נא לשלוח זמינות למשמרות». וואטסאפ פותח צ'אט אחד בכל פעם — לחצו "שלח" ליד כל עובד שתרצו.</p>
+    <input class="srch" id="waSearch" placeholder="🔍 חיפוש עובד"></div>
+  <div class="sheet-body" id="waBody"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
   </div>
 </div>
 
@@ -573,6 +583,36 @@ document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
 
 /* ---- הדבקה חכמה: "דני לוי 0501234567" -> שם + טלפון ---- */
 document.getElementById('btnSmartPaste').onclick=()=>startAddEmployees();
+document.getElementById('btnWaAvail').onclick=()=>openWaAvail();
+const WA_AVAIL_MSG='נא לשלוח זמינות למשמרות';
+function waPhone(p){let d=(p||'').replace(/\D/g,'');if(!d)return '';if(d.slice(0,3)==='972')return d;if(d[0]==='0')return '972'+d.slice(1);return d;}
+function openWaAvail(){const inp=document.getElementById('waSearch');inp.value='';inp.oninput=renderWaList;renderWaList();openSheet('waSheet');}
+function renderWaList(){
+  const q=document.getElementById('waSearch').value.trim();
+  const body=document.getElementById('waBody');body.innerHTML='';
+  const list=loc().employees.filter(e=>!q||e.name.includes(q)||(e.phone||'').includes(q));
+  if(!list.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">אין עובדים להצגה</p>';return;}
+  list.forEach(emp=>{
+    const ph=waPhone(emp.phone);
+    const it=document.createElement('div');it.className='emp-item';
+    it.innerHTML='<div class="emp-avatar">'+emp.name.slice(0,1)+'</div>'+
+      '<div class="emp-info"><b>'+emp.name+'</b><small>'+(emp.phone||'ללא טלפון')+' · '+(emp.role==='store'?'חנות':'קופה')+'</small></div>';
+    let btn;
+    if(ph){
+      btn=document.createElement('a');
+      btn.className='emp-btn';
+      btn.style.cssText='background:#25D366;color:#fff;text-decoration:none;display:inline-flex;align-items:center';
+      btn.textContent='📲 שלח';
+      btn.href='https://wa.me/'+ph+'?text='+encodeURIComponent(WA_AVAIL_MSG);
+      btn.target='_blank';btn.rel='noopener';
+      btn.onclick=()=>{setTimeout(()=>{btn.textContent='✓ נפתח';btn.style.background='var(--muted)';},400);};
+    }else{
+      btn=document.createElement('button');
+      btn.className='emp-btn';btn.textContent='אין מספר';btn.disabled=true;btn.style.opacity='.5';
+    }
+    it.appendChild(btn);body.appendChild(it);
+  });
+}
 
 /* ---- גיבוי ושחזור ---- */
 document.getElementById('btnBackup').onclick=async()=>{
