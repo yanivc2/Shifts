@@ -558,7 +558,7 @@ async function importLocalToCloud(){
 function myRole(locId){return (S.roles||{})[locId]||'owner';}
 function canManage(locId){var r=myRole(locId);return r==='owner'||r==='coowner';}
 async function acceptInvites(){try{const {data}=await sb.rpc('accept_invites');return data||0;}catch(e){return 0;}}
-async function inviteMember(locId,email,role){const {error}=await sb.rpc('invite_member',{p_store:locId,p_email:email,p_role:role});if(error)throw error;}
+async function inviteMember(locId,email,role){const {data,error}=await sb.rpc('invite_member',{p_store:locId,p_email:email,p_role:role});if(error)throw error;return data;}
 async function listMembers(locId){const {data,error}=await sb.rpc('list_members',{p_store:locId});if(error)throw error;return data||{members:[],invites:[]};}
 async function removeMember(locId,uid){const {error}=await sb.rpc('remove_member',{p_store:locId,p_user:uid});if(error)throw error;}
 async function cancelInvite(locId,email){const {error}=await sb.rpc('cancel_invite',{p_store:locId,p_email:email});if(error)throw error;}
@@ -1070,11 +1070,21 @@ async function renderManage(){
   body.querySelectorAll('.mgrRm').forEach(function(b){b.onclick=async function(){if(!(await askConfirm('להסיר את החבר מהסניף?')))return;try{await removeMember(S.cur,b.dataset.uid);toast('הוסר');renderManage();}catch(e){toast('הסרה נכשלה');}};});
   body.querySelectorAll('.mgrCancel').forEach(function(b){b.onclick=async function(){try{await cancelInvite(S.cur,b.dataset.em);toast('ההזמנה בוטלה');renderManage();}catch(e){toast('הפעולה נכשלה');}};});
 }
+function shareInvite(email){
+  var msg='הוזמנת לנהל סידור עבודה בסניף "'+((loc()||{}).name||'')+'".\nהיכנס/הירשם עם המייל '+email+' בכתובת:\n'+REDIRECT+'\nברגע שתתחבר — הסניף יופיע אצלך אוטומטית.';
+  if(navigator.share){navigator.share({title:'הזמנה לסידור עבודה',text:msg}).catch(function(){});}
+  else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('נוסח ההזמנה הועתק — הדבק/י בוואטסאפ');}
+  else{toast('ההזמנה נשמרה');}
+}
 document.getElementById('btnInvite').onclick=async function(){
   var email=document.getElementById('mgrEmail').value.trim(),role=document.getElementById('mgrRole').value;
   if(!email||email.indexOf('@')<1){toast('הזן אימייל תקין');return;}
   var b=document.getElementById('btnInvite');b.disabled=true;
-  try{await inviteMember(S.cur,email,role);document.getElementById('mgrEmail').value='';toast('ההזמנה נשלחה');renderManage();}
+  try{
+    var res=await inviteMember(S.cur,email,role);
+    document.getElementById('mgrEmail').value='';renderManage();
+    if(res==='added'){toast('המשתמש נוסף לסניף ✓');}else{toast('ההזמנה נשמרה');shareInvite(email);}
+  }
   catch(e){toast('ההזמנה נכשלה'+((e&&e.message)?(' — '+e.message):''));}
   b.disabled=false;
 };
@@ -1097,14 +1107,14 @@ async function renderAvailLink(){
       +'<div style="word-break:break-all;font-size:13px;background:var(--bg);padding:10px;border-radius:8px">'+esc(url)+'</div>'
       +'<div style="display:flex;gap:8px;margin-top:8px">'
       +'<button class="btn btn-ghost" id="btnCopyLink" style="margin:0;flex:1">📋 העתק</button>'
-      +'<button class="btn btn-ghost" id="btnWaLink" style="margin:0;flex:1">📲 וואטסאפ</button></div></div>'
+      +'<button class="btn btn-ghost" id="btnWaLink" style="margin:0;flex:1">📲 שיתוף</button></div></div>'
       +'<div id="subsWrap"><p style="color:var(--muted);padding:8px">טוען הגשות…</p></div>';
   }
   body.innerHTML=h;
   if(!token){document.getElementById('btnGenLink').onclick=async function(){var b=document.getElementById('btnGenLink');b.disabled=true;try{await createAvailToken(S.cur);renderAvailLink();}catch(e){b.disabled=false;toast('יצירת הקישור נכשלה');}};return;}
   var url=fillLink(token);
   document.getElementById('btnCopyLink').onclick=function(){if(navigator.clipboard){navigator.clipboard.writeText(url);toast('הקישור הועתק');}else{toast(url);}};
-  document.getElementById('btnWaLink').onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent('מלא/י בבקשה זמינות למשמרות:\n'+url),'_blank');};
+  document.getElementById('btnWaLink').onclick=function(){var msg='מלא/י בבקשה זמינות למשמרות:';if(navigator.share){navigator.share({title:'זמינות למשמרות',text:msg,url:url}).catch(function(){});}else{window.open('https://wa.me/?text='+encodeURIComponent(msg+'\n'+url),'_blank');}};
   renderSubs();
 }
 async function renderSubs(){
