@@ -4,6 +4,14 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
 <title>סידור עבודה שבועי</title>
+<meta name="theme-color" content="#1B4965">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="סידור עבודה">
+<link rel="manifest" href="./manifest.json">
+<link rel="apple-touch-icon" href="./icon-180.png">
+<link rel="icon" type="image/png" href="./icon-192.png">
 <!-- v1.1 -->
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
@@ -202,6 +210,26 @@ main{padding:12px}
 .auth-msg.err{display:block;background:var(--no-bg);color:var(--no)}
 .auth-msg.ok{display:block;background:var(--ok-bg);color:var(--ok)}
 #authLoading{color:#fff;text-align:center;font-size:15px}
+/* ---- Public availability fill (phase 3) ---- */
+#fillScreen{position:fixed;inset:0;background:var(--bg);z-index:1200;display:none;flex-direction:column;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#fillScreen.on{display:flex}
+.fill-head{background:var(--brand);color:#fff;padding:20px 16px calc(18px + env(safe-area-inset-top));text-align:center}
+.fill-head h1{font-size:19px;font-weight:800}
+.fill-head p{font-size:13px;opacity:.85;margin-top:3px}
+.fill-wrap{max-width:520px;width:100%;margin:0 auto;padding:14px}
+.fill-card{background:var(--card);border:1px solid var(--line);border-radius:var(--radius);padding:14px;margin-bottom:12px}
+.fill-label{font-weight:700;font-size:14px;margin-bottom:8px;display:block}
+.fill-sel{width:100%;padding:12px;border:1px solid var(--line);border-radius:10px;background:#fff}
+.wk-tabs{display:flex;gap:8px;margin-top:10px}
+.wk-tab{flex:1;padding:10px;border-radius:10px;background:var(--bg);border:1px solid var(--line);font-weight:700;font-size:13px;text-align:center}
+.wk-tab.on{background:var(--brand);color:#fff;border-color:var(--brand)}
+.fill-day{border:1px solid var(--line);border-radius:12px;padding:10px;margin-bottom:10px}
+.fill-day h3{font-size:15px;margin-bottom:8px}
+.fill-shifts{display:flex;gap:8px}
+.fill-sh{flex:1;border-radius:10px;padding:10px 6px;text-align:center;font-weight:700;font-size:13px;border:2px solid var(--line);background:#fff;color:var(--muted)}
+.fill-sh .em{display:block;font-size:16px;margin-bottom:2px}
+.fill-sh.yes{border-color:var(--ok);background:var(--ok-bg);color:var(--ok)}
+.fill-sh.no{border-color:var(--no);background:var(--no-bg);color:var(--no)}
 </style>
 </head>
 <body>
@@ -240,6 +268,11 @@ main{padding:12px}
 
     <div class="auth-msg" id="authMsg"></div>
   </div>
+</div>
+
+<div id="fillScreen">
+  <div class="fill-head"><h1 id="fillStoreName">…</h1><p>מילוי זמינות למשמרות</p></div>
+  <div class="fill-wrap" id="fillWrap"><div class="fill-card">טוען…</div></div>
 </div>
 
 <header>
@@ -284,6 +317,8 @@ main{padding:12px}
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
     <button class="btn btn-ghost" id="btnSmartPaste">➕ הוספת מספר עובדים</button>
     <button class="btn btn-ghost" id="btnWaAvail">📲 בקשת זמינות בוואטסאפ</button>
+    <button class="btn btn-ghost" id="btnManage" style="display:none">👥 שותפים והרשאות</button>
+    <button class="btn btn-ghost" id="btnAvailLink">🔗 קישור זמינות (מילוי עצמי)</button>
     <div style="display:flex;gap:8px;margin-top:8px">
       <button class="btn btn-ghost" id="btnBackup" style="margin:0">💾 גיבוי נתונים</button>
       <button class="btn btn-ghost" id="btnRestore" style="margin:0">♻️ שחזור מגיבוי</button>
@@ -293,6 +328,34 @@ main{padding:12px}
   </div>
   <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
   <input type="file" id="vcfFile" accept=".vcf,text/vcard,text/x-vcard,text/directory" multiple style="display:none">
+</div>
+
+<!-- Members / permissions (phase 2) -->
+<div class="sheet" id="mgrSheet">
+  <div class="sheet-head"><h2>👥 שותפים והרשאות · <span id="mgrLocName"></span></h2>
+    <p>שותף = עריכה מלאה של הסניף. מנהל = צפייה ועריכת הסידור. ההזמנה לפי אימייל — כשהאדם נרשם או מתחבר, הסניף יופיע אצלו.</p></div>
+  <div class="sheet-body" id="mgrBody"></div>
+  <div class="sheet-foot">
+    <div style="display:flex;gap:8px;align-items:center">
+      <input id="mgrEmail" placeholder="אימייל להזמנה" style="flex:1;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px" inputmode="email" autocapitalize="off" autocorrect="off">
+      <select id="mgrRole" style="padding:12px;border:1px solid var(--line);border-radius:10px">
+        <option value="manager">מנהל</option>
+        <option value="coowner">שותף</option>
+      </select>
+    </div>
+    <button class="btn btn-primary" id="btnInvite" style="margin-top:8px">➕ שלח הזמנה</button>
+    <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
+  </div>
+</div>
+
+<!-- Availability self-fill link (phase 3) -->
+<div class="sheet" id="linkSheet">
+  <div class="sheet-head"><h2>🔗 קישור זמינות · <span id="linkLocName"></span></h2>
+    <p>שלח לעובדים קישור למילוי עצמי של זמינות. הם ממלאים בלי להתחבר, ואתה מאשר את מה שהתקבל.</p></div>
+  <div class="sheet-body" id="linkBody"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
+  </div>
 </div>
 
 <!-- Employee form -->
@@ -399,7 +462,7 @@ main{padding:12px}
 /* ================= Data ================= */
 const DAYS=['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
 const SHIFTS=[{id:'m',name:'בוקר',ico:'☀️',cls:'morning'},{id:'e',name:'ערב',ico:'🌇',cls:'evening'},{id:'n',name:'לילה',ico:'🌙',cls:'night'}];
-let S={locations:[{id:'L1',name:'סניף 1',employees:[]}],sched:{},avail:{},cur:'L1'};
+let S={locations:[{id:'L1',name:'סניף 1',employees:[]}],sched:{},avail:{},cur:'L1',roles:{}};
 let weekStart=sundayOf(new Date());
 let memOnly=false;
 
@@ -442,7 +505,7 @@ function save(){
 
 /* ===== Cloud data layer (Supabase) ===== */
 async function cloudLoad(){
-  S={locations:[],sched:{},avail:{},cur:null};
+  S={locations:[],sched:{},avail:{},cur:null,roles:{}};
   const {data:stores,error:e1}=await sb.from('stores').select('id,name,created_at').order('created_at',{ascending:true});
   if(e1)throw e1;
   let blobs=[];
@@ -457,6 +520,10 @@ async function cloudLoad(){
     S.sched[st.id]=b.sched||{};
     S.avail[st.id]=b.avail||{};
   });
+  try{
+    const {data:{user}}=await sb.auth.getUser();
+    if(user){const {data:mems}=await sb.from('store_members').select('store_id,role').eq('user_id',user.id);(mems||[]).forEach(m=>{S.roles[m.store_id]=m.role;});}
+  }catch(e){}
   if(S.locations.length)S.cur=S.locations[0].id;
 }
 function branchBlob(locId){
@@ -488,6 +555,13 @@ async function importLocalToCloud(){
   }
 }
 
+function myRole(locId){return (S.roles||{})[locId]||'owner';}
+function canManage(locId){var r=myRole(locId);return r==='owner'||r==='coowner';}
+async function acceptInvites(){try{const {data}=await sb.rpc('accept_invites');return data||0;}catch(e){return 0;}}
+async function inviteMember(locId,email,role){const {error}=await sb.rpc('invite_member',{p_store:locId,p_email:email,p_role:role});if(error)throw error;}
+async function listMembers(locId){const {data,error}=await sb.rpc('list_members',{p_store:locId});if(error)throw error;return data||{members:[],invites:[]};}
+async function removeMember(locId,uid){const {error}=await sb.rpc('remove_member',{p_store:locId,p_user:uid});if(error)throw error;}
+async function cancelInvite(locId,email){const {error}=await sb.rpc('cancel_invite',{p_store:locId,p_email:email});if(error)throw error;}
 function sundayOf(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d;}
 function wkKey(){return weekStart.toISOString().slice(0,10);}
 function dOf(i){const d=new Date(weekStart);d.setDate(d.getDate()+i);return d;}
@@ -529,6 +603,7 @@ function getAv(empId,di,sh){return((((S.avail[S.cur]||{})[wkKey()]||{})[empId]||
 function setAv(empId,di,sh,v){S.avail[S.cur]=S.avail[S.cur]||{};const w=S.avail[S.cur][wkKey()]=S.avail[S.cur][wkKey()]||{};w[empId]=w[empId]||{};w[empId][cellKey(di,sh)]=v;save();}
 
 /* ---- דיאלוגים מובנים (prompt/confirm חסומים בסביבת Artifact) ---- */
+function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
 function askText(title,value,ph){return new Promise(res=>{
   const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
   document.getElementById('dlgTitle').textContent=title;
@@ -667,6 +742,7 @@ function openEmployees(){
   const inp=document.getElementById('empSearch');
   inp.oninput=renderEmpList;
   renderEmpList();
+  var _bm=document.getElementById('btnManage');if(_bm)_bm.style.display=canManage(S.cur)?'block':'none';
   openSheet('empSheet');
 }
 function renderEmpList(){
@@ -960,6 +1036,157 @@ document.getElementById('btnDelEmp').onclick=async()=>{
   save();openEmployees();
 };
 
+/* ---- Members / permissions (phase 2) ---- */
+function openManage(){
+  if(!canManage(S.cur)){toast('רק בעלים או שותף יכולים לנהל הרשאות');return;}
+  document.getElementById('mgrLocName').textContent=loc()?loc().name:'';
+  renderManage();
+  openSheet('mgrSheet');
+}
+async function renderManage(){
+  var body=document.getElementById('mgrBody');
+  body.innerHTML='<p style="color:var(--muted);padding:8px">טוען…</p>';
+  var d;try{d=await listMembers(S.cur);}catch(e){body.innerHTML='<p style="color:var(--no);padding:8px">שגיאה בטעינה. ודא שהרצת את ה־SQL של שלב 2 ב־Supabase.</p>';return;}
+  var roleHe={owner:'בעלים',coowner:'שותף',manager:'מנהל'};
+  var h='<div style="font-weight:700;margin:6px 2px 4px;color:var(--muted);font-size:13px">חברי הסניף</div>';
+  (d.members||[]).forEach(function(m){
+    h+='<div style="display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--line)">'
+      +'<div style="flex:1;min-width:0"><div style="font-weight:600;word-break:break-all">'+esc(m.email||'')+(m.is_me?' <span style="color:var(--muted);font-weight:400">(אתה)</span>':'')+'</div>'
+      +'<div style="font-size:12px;color:var(--brand);font-weight:700">'+(roleHe[m.role]||m.role)+'</div></div>'
+      +((m.role!=='owner'&&!m.is_me)?'<button data-uid="'+m.user_id+'" class="mgrRm" style="color:var(--no);font-weight:700;font-size:13px;padding:6px 10px">הסר</button>':'')
+      +'</div>';
+  });
+  if(d.invites&&d.invites.length){
+    h+='<div style="font-weight:700;margin:14px 2px 4px;color:var(--muted);font-size:13px">הזמנות ממתינות</div>';
+    d.invites.forEach(function(iv){
+      h+='<div style="display:flex;align-items:center;gap:8px;padding:10px 4px;border-bottom:1px solid var(--line)">'
+        +'<div style="flex:1;min-width:0"><div style="word-break:break-all">'+esc(iv.email)+'</div>'
+        +'<div style="font-size:12px;color:var(--muted)">ממתין · '+(roleHe[iv.role]||iv.role)+'</div></div>'
+        +'<button data-em="'+esc(iv.email)+'" class="mgrCancel" style="color:var(--no);font-weight:700;font-size:13px;padding:6px 10px">ביטול</button>'
+        +'</div>';
+    });
+  }
+  body.innerHTML=h;
+  body.querySelectorAll('.mgrRm').forEach(function(b){b.onclick=async function(){if(!(await askConfirm('להסיר את החבר מהסניף?')))return;try{await removeMember(S.cur,b.dataset.uid);toast('הוסר');renderManage();}catch(e){toast('הסרה נכשלה');}};});
+  body.querySelectorAll('.mgrCancel').forEach(function(b){b.onclick=async function(){try{await cancelInvite(S.cur,b.dataset.em);toast('ההזמנה בוטלה');renderManage();}catch(e){toast('הפעולה נכשלה');}};});
+}
+document.getElementById('btnInvite').onclick=async function(){
+  var email=document.getElementById('mgrEmail').value.trim(),role=document.getElementById('mgrRole').value;
+  if(!email||email.indexOf('@')<1){toast('הזן אימייל תקין');return;}
+  var b=document.getElementById('btnInvite');b.disabled=true;
+  try{await inviteMember(S.cur,email,role);document.getElementById('mgrEmail').value='';toast('ההזמנה נשלחה');renderManage();}
+  catch(e){toast('ההזמנה נכשלה'+((e&&e.message)?(' — '+e.message):''));}
+  b.disabled=false;
+};
+document.getElementById('btnManage').onclick=function(){openManage();};
+/* ---- Availability self-fill link + submissions (phase 3, owner side) ---- */
+async function getAvailToken(locId){const {data,error}=await sb.from('store_tokens').select('token').eq('store_id',locId).order('created_at',{ascending:false}).limit(1);if(error)throw error;return (data&&data[0]&&data[0].token)||null;}
+async function createAvailToken(locId){const {data,error}=await sb.rpc('create_avail_token',{p_store:locId});if(error)throw error;return data;}
+async function loadSubmissions(locId){const {data,error}=await sb.from('avail_submissions').select('*').eq('store_id',locId).order('created_at',{ascending:false});if(error)throw error;return data||[];}
+function fillLink(token){return REDIRECT+'?fill='+encodeURIComponent(token);}
+function openAvailLink(){document.getElementById('linkLocName').textContent=loc()?loc().name:'';renderAvailLink();openSheet('linkSheet');}
+async function renderAvailLink(){
+  var body=document.getElementById('linkBody');
+  body.innerHTML='<p style="color:var(--muted);padding:8px">טוען…</p>';
+  var token;try{token=await getAvailToken(S.cur);}catch(e){body.innerHTML='<p style="color:var(--no);padding:8px">שגיאה בטעינה. ודא שהרצת את ה־SQL של שלב 3 ב־Supabase.</p>';return;}
+  var h='';
+  if(!token){h+='<button class="btn btn-primary" id="btnGenLink">✨ צור קישור זמינות</button>';}
+  else{
+    var url=fillLink(token);
+    h+='<div class="fill-card" style="margin:0 0 12px"><div style="font-size:12px;color:var(--muted);margin-bottom:6px">הקישור לשיתוף עם העובדים:</div>'
+      +'<div style="word-break:break-all;font-size:13px;background:var(--bg);padding:10px;border-radius:8px">'+esc(url)+'</div>'
+      +'<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<button class="btn btn-ghost" id="btnCopyLink" style="margin:0;flex:1">📋 העתק</button>'
+      +'<button class="btn btn-ghost" id="btnWaLink" style="margin:0;flex:1">📲 וואטסאפ</button></div></div>'
+      +'<div id="subsWrap"><p style="color:var(--muted);padding:8px">טוען הגשות…</p></div>';
+  }
+  body.innerHTML=h;
+  if(!token){document.getElementById('btnGenLink').onclick=async function(){var b=document.getElementById('btnGenLink');b.disabled=true;try{await createAvailToken(S.cur);renderAvailLink();}catch(e){b.disabled=false;toast('יצירת הקישור נכשלה');}};return;}
+  var url=fillLink(token);
+  document.getElementById('btnCopyLink').onclick=function(){if(navigator.clipboard){navigator.clipboard.writeText(url);toast('הקישור הועתק');}else{toast(url);}};
+  document.getElementById('btnWaLink').onclick=function(){window.open('https://wa.me/?text='+encodeURIComponent('מלא/י בבקשה זמינות למשמרות:\n'+url),'_blank');};
+  renderSubs();
+}
+async function renderSubs(){
+  var w=document.getElementById('subsWrap');if(!w)return;
+  var subs;try{subs=await loadSubmissions(S.cur);}catch(e){w.innerHTML='<p style="color:var(--no);padding:8px">שגיאה בטעינת ההגשות</p>';return;}
+  if(!subs.length){w.innerHTML='<p style="color:var(--muted);padding:14px 8px;text-align:center">עדיין לא התקבלו הגשות.</p>';return;}
+  var h='<div style="font-weight:700;margin:6px 2px 6px;color:var(--muted);font-size:13px">הגשות שהתקבלו</div>';
+  subs.forEach(function(sub){
+    var noDays=[];var data=sub.data||{};
+    Object.keys(data).forEach(function(k){if(data[k]==='no'){var pp=k.split('-');noDays.push(DAYS[+pp[0]]+' '+((SHIFTS.find(function(x){return x.id===pp[1];})||{}).name||''));}});
+    h+='<div class="fill-card" style="margin:0 0 10px">'
+      +'<div style="display:flex;justify-content:space-between;align-items:center;gap:8px">'
+      +'<div style="font-weight:700">'+esc(sub.emp_name||'')+'</div>'
+      +'<div style="font-size:12px;color:var(--muted)">שבוע '+esc(sub.week_key||'')+'</div></div>'
+      +'<div style="font-size:12px;color:var(--muted);margin-top:4px">'+(noDays.length?('לא זמין: '+noDays.map(esc).join(', ')):'זמין לכל המשמרות')+'</div>'
+      +'<button class="btn btn-primary applySub" style="margin-top:8px;padding:10px">✓ החל על הסידור</button></div>';
+  });
+  w.innerHTML=h;
+  w.querySelectorAll('.applySub').forEach(function(b,i){b.onclick=function(){applySubmission(subs[i]);};});
+}
+function applySubmission(sub){
+  if(!sub||!sub.emp_id){toast('הגשה לא תקינה');return;}
+  var emp=(loc().employees||[]).find(function(e){return e.id===sub.emp_id;});
+  if(!emp){toast('העובד לא נמצא בסניף — ייתכן שנמחק');return;}
+  var wk=sub.week_key;var data=sub.data||{};
+  S.avail[S.cur]=S.avail[S.cur]||{};S.avail[S.cur][wk]=S.avail[S.cur][wk]||{};S.avail[S.cur][wk][sub.emp_id]=S.avail[S.cur][wk][sub.emp_id]||{};
+  var tgt=S.avail[S.cur][wk][sub.emp_id];
+  Object.keys(data).forEach(function(k){var v=data[k];if(v==='yes'||v==='no'||v==='unk')tgt[k]=v;});
+  save();toast('הזמינות של '+emp.name+' הוחלה (שבוע '+wk+')');
+}
+document.getElementById('btnAvailLink').onclick=function(){openAvailLink();};
+
+/* ---- Public availability fill screen (phase 3, employee side, no login) ---- */
+async function initFill(token){
+  var scr=document.getElementById('fillScreen');scr.classList.add('on');
+  var wrap=document.getElementById('fillWrap');
+  var info=null;
+  try{const {data,error}=await sb.rpc('avail_store_info',{p_token:token});if(error)throw error;info=data;}catch(e){info=null;}
+  if(!info||!info.store_id){wrap.innerHTML='<div class="fill-card" style="color:var(--no)">הקישור אינו תקין או שפג תוקפו. בקש/י מהמנהל קישור חדש.</div>';return;}
+  document.getElementById('fillStoreName').textContent=info.store_name||'סניף';
+  var emps=(info.employees||[]).filter(function(e){return e&&e.id&&e.name;});
+  if(!emps.length){wrap.innerHTML='<div class="fill-card">אין עדיין עובדים בסניף. פנה/י למנהל.</div>';return;}
+  function sunday(off){var d=new Date();d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay()+off*7);return d;}
+  function key(d){return d.toISOString().slice(0,10);}
+  function lbl(d){var e=new Date(d);e.setDate(e.getDate()+6);return (d.getDate()+'.'+(d.getMonth()+1))+'–'+(e.getDate()+'.'+(e.getMonth()+1));}
+  var weeks=[{k:key(sunday(0)),t:'השבוע · '+lbl(sunday(0))},{k:key(sunday(1)),t:'הבא · '+lbl(sunday(1))}];
+  var SH=(info.shifts&&info.shifts.length)?info.shifts:[{id:'m',name:'בוקר',ico:'☀️'},{id:'e',name:'ערב',ico:'🌇'},{id:'n',name:'לילה',ico:'🌙'}];
+  var DY=(info.days&&info.days.length)?info.days:['ראשון','שני','שלישי','רביעי','חמישי','שישי','שבת'];
+  var st={emp:emps[0].id,wk:weeks[0].k,vals:{}};
+  function draw(){
+    var wv=st.vals[st.wk]=st.vals[st.wk]||{};
+    var h='<div class="fill-card"><label class="fill-label">מי ממלא/ת?</label>'
+      +'<select class="fill-sel" id="fEmp">'+emps.map(function(e){return '<option value="'+e.id+'"'+(e.id===st.emp?' selected':'')+'>'+esc(e.name)+'</option>';}).join('')+'</select>'
+      +'<div class="wk-tabs">'+weeks.map(function(w){return '<button class="wk-tab'+(w.k===st.wk?' on':'')+'" data-k="'+w.k+'">'+esc(w.t)+'</button>';}).join('')+'</div></div>';
+    h+='<div class="fill-card"><div style="font-size:12px;color:var(--muted);margin-bottom:10px">לחצ/י על משמרת כדי לסמן: <b style="color:var(--ok)">זמין</b> ← <b style="color:var(--no)">לא זמין</b> ← <b>?</b></div>';
+    DY.forEach(function(dn,di){
+      h+='<div class="fill-day"><h3>יום '+esc(dn)+'</h3><div class="fill-shifts">';
+      SH.forEach(function(sh){
+        var ck=di+'-'+sh.id;var v=wv[ck]||'yes';
+        h+='<button class="fill-sh '+v+'" data-ck="'+ck+'"><span class="em">'+(sh.ico||'')+'</span>'+esc(sh.name)+'</button>';
+      });
+      h+='</div></div>';
+    });
+    h+='</div><button class="btn btn-primary" id="fSend" style="margin-bottom:26px">שליחת הזמינות</button>';
+    wrap.innerHTML=h;
+    document.getElementById('fEmp').onchange=function(){st.emp=this.value;};
+    wrap.querySelectorAll('.wk-tab').forEach(function(b){b.onclick=function(){st.wk=b.dataset.k;draw();};});
+    wrap.querySelectorAll('.fill-sh').forEach(function(b){b.onclick=function(){var ck=b.dataset.ck;var nx={yes:'no',no:'unk',unk:'yes'}[wv[ck]||'yes'];wv[ck]=nx;b.className='fill-sh '+nx;};});
+    document.getElementById('fSend').onclick=send;
+  }
+  async function send(){
+    var b=document.getElementById('fSend');b.disabled=true;b.textContent='שולח…';
+    var emp=emps.find(function(e){return e.id===st.emp;})||emps[0];
+    var payload=st.vals[st.wk]||{};
+    try{
+      const {error}=await sb.rpc('avail_submit',{p_token:token,p_emp_id:st.emp,p_emp_name:emp.name,p_week:st.wk,p_data:payload});
+      if(error)throw error;
+      wrap.innerHTML='<div class="fill-card" style="text-align:center;padding:34px 14px"><div style="font-size:44px">✅</div><div style="font-weight:800;font-size:18px;margin-top:8px">הזמינות נשלחה!</div><div style="color:var(--muted);margin-top:6px">תודה '+esc(emp.name)+'. אפשר לסגור את החלון.</div></div>';
+    }catch(e){b.disabled=false;b.textContent='שליחת הזמינות';alert('השליחה נכשלה, נסה/י שוב.');}
+  }
+  draw();
+}
 /* ---- Availability ---- */
 let avEmpId=null;
 function openAvail(empId){
@@ -1112,6 +1339,7 @@ const REDIRECT='https://yanivc2.github.io/Shifts/';
 let sb=null,_booted=false;
 async function bootApp(){
   if(_booted)return;_booted=true;
+  try{await acceptInvites();}catch(e){}
   try{await cloudLoad();}catch(e){if(typeof toast==='function')toast('שגיאת טעינה מהענן, נסה לרענן');}
   if(!S.locations.length){
     let hasLocal=false;try{const r=localStorage.getItem('sched-v1');if(r){const o=JSON.parse(r);hasLocal=!!(o.locations&&o.locations.length);}}catch(e){}
@@ -1139,8 +1367,10 @@ function heErr(e){const s=(e&&e.message||'').toLowerCase();
   return (e&&e.message)||'שגיאה, נסה שוב';}
 async function initAuth(){
   const recovery=(location.hash+location.search).includes('type=recovery');
+  const fillToken=new URLSearchParams(location.search).get('fill');
   if(typeof supabase==='undefined'){showAuthCard();aMsg('טעינת מערכת ההתחברות נכשלה. בדוק חיבור לאינטרנט ורענן.');return;}
   sb=supabase.createClient(SB_URL,SB_KEY);
+  if(fillToken){document.getElementById('authScreen').style.display='none';initFill(fillToken);return;}
   sb.auth.onAuthStateChange((event,session)=>{
     if(event==='PASSWORD_RECOVERY'){showAuthCard();authMode('reset');return;}
     if(session&&!recovery){showApp();}
