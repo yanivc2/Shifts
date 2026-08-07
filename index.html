@@ -753,9 +753,18 @@ document.getElementById('restoreFile').onchange=async(ev)=>{
 };
 var _bic=document.getElementById('btnImportCloud');
 if(_bic)_bic.onclick=async()=>{
-  if(!(await askConfirm('הנתונים מהמכשיר הזה יתווספו לחשבון בענן. להמשיך?')))return;
-  try{await importLocalToCloud();await cloudLoad();render();toast('הנתונים יובאו לענן');closeSheets();}
-  catch(e){toast(e&&e.message==='no-local'?'אין נתונים מקומיים לייבוא':'הייבוא נכשל, נסה שוב');}
+  if(!(await askConfirm('פעולה זו תנקה את הנתונים בענן ותייבא מחדש את כל הנתונים מהמכשיר. להמשיך?')))return;
+  try{
+    const {data:mine,error:eS}=await sb.from('stores').select('id');
+    if(eS)throw eS;
+    for(const st of (mine||[])){const {error:eD}=await sb.from('stores').delete().eq('id',st.id);if(eD)throw eD;}
+    await importLocalToCloud();
+    await cloudLoad();render();
+    toast('הנתונים יובאו לענן בהצלחה');closeSheets();
+  }catch(e){
+    const msg=[e&&e.message,e&&e.code,e&&e.details,e&&e.hint].filter(Boolean).join(' | ');
+    try{alert('שגיאת ייבוא:\n'+(msg||String(e)));}catch(_){toast('שגיאה: '+(msg||''));}
+  }
 };
 
 /* ---- פענוח vCard משותף ---- */
