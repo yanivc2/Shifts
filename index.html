@@ -350,6 +350,7 @@ main{padding:12px}
   <div class="sheet-head"><h2>👥 שותפים והרשאות · <span id="mgrLocName"></span></h2>
     <p>שותף = עריכה מלאה של הסניף. מנהל = צפייה ועריכת הסידור. ההזמנה לפי אימייל — כשהאדם נרשם או מתחבר, הסניף יופיע אצלו.</p></div>
   <div class="sheet-body" id="mgrBody"></div>
+  <div id="pendWrap" style="padding:0 4px"></div>
   <div class="sheet-foot">
     <div style="display:flex;gap:8px;align-items:center">
       <input id="mgrEmail" placeholder="אימייל להזמנה" style="flex:1;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px" inputmode="email" autocapitalize="off" autocorrect="off">
@@ -527,10 +528,28 @@ async function cloudWrite(locId,desc){
     if(desc.t==='sched'){c=cellKey(desc.di,desc.sh);await sb.rpc('set_sched_cell',{p_store:locId,p_week:w,p_cell:c,p_val:(((S.sched[locId]||{})[w]||{})[c]||[])});}
     else if(desc.t==='fixed'){c=cellKey(desc.di,desc.sh);await sb.rpc('set_fixed_cell',{p_store:locId,p_cell:c,p_val:(((S.fixed||{})[locId]||{})[c]||[])});}
     else if(desc.t==='avail'){c=cellKey(desc.di,desc.sh);var v=((((S.avail[locId]||{})[w]||{})[desc.emp]||{})[c])||'unk';await sb.rpc('set_avail_cell',{p_store:locId,p_week:w,p_emp:desc.emp,p_cell:c,p_val:v});}
-    else if(desc.t==='emps'){await sb.rpc('set_employees',{p_store:locId,p_emps:((S.locations.find(function(l){return l.id===locId;})||{}).employees||[])});}
+    else if(desc.t==='emps'){await empsWrite(locId,desc);}
     else if(desc.t==='name'){await sb.rpc('set_store_name',{p_store:locId,p_name:((S.locations.find(function(l){return l.id===locId;})||{}).name||'')});}
     remoteOK=true;
   }catch(e){remoteOK=false;}
+}
+async function empsWrite(locId,desc){
+  var lo=S.locations.find(function(l){return l.id===locId;})||{};
+  var cur=(lo.employees||[]);
+  if(isOwner(locId)){
+    await sb.rpc('set_employees',{p_store:locId,p_emps:cur});
+    S._empsCloud=S._empsCloud||{};S._empsCloud[locId]=cur.slice();
+    return;
+  }
+  var proposed=cur.slice();
+  var base=(S._empsCloud&&S._empsCloud[locId])?S._empsCloud[locId].slice():[];
+  lo.employees=base;
+  try{localStorage.setItem('sched-v1',JSON.stringify(S));}catch(e){}
+  if(S.cur===locId&&typeof render==='function')render();
+  var es=document.getElementById('empSheet');if(es&&es.classList.contains('open')&&typeof renderEmpList==='function')renderEmpList();
+  var note=(desc&&desc.note)||'עדכון עובדים';
+  var res=await sb.rpc('request_emp_change',{p_store:locId,p_emps:proposed,p_note:note});
+  if(res&&res.error){toast('שגיאה בשליחת הבקשה');}else{toast('נשלח לאישור הבעלים');}
 }
 async function pushSchedWeek(locId,w){
   var cells=((S.sched[locId]||{})[w])||{};
@@ -568,7 +587,7 @@ function startRealtime(){
         if(!locObj)return;
         var d=row.data||{};
         if('name' in d && d.name)locObj.name=d.name;
-        if('employees' in d)locObj.employees=d.employees||[];
+        if('employees' in d){locObj.employees=d.employees||[];S._empsCloud=S._empsCloud||{};S._empsCloud[id]=(d.employees||[]).slice();}
         S.sched[id]=d.sched||{};
         S.avail[id]=d.avail||{};
         S.fixed=S.fixed||{};S.fixed[id]=d.fixed||{};
@@ -576,12 +595,48 @@ function startRealtime(){
         if(S.cur===id&&typeof render==='function')render();
       }catch(e){}
     })
+    .on('postgres_changes',{event:'*',schema:'public',table:'pending_changes'},onPendingRT)
     .subscribe();
 }
 
+function onPendingRT(payload){
+  try{
+    var mgr=document.getElementById('mgrSheet');
+    if(mgr&&mgr.classList.contains('open')&&isOwner(S.cur))renderPending();
+    if(payload&&payload.eventType==='INSERT'&&payload.new&&payload.new.store_id===S.cur&&isOwner(S.cur))toast('בקשת שינוי עובדים חדשה');
+  }catch(e){}
+}
+async function renderPending(){
+  var wrap=document.getElementById('pendWrap');if(!wrap)return;
+  if(!isOwner(S.cur)){wrap.innerHTML='';return;}
+  var rows;
+  try{var res=await sb.from('pending_changes').select('*').eq('store_id',S.cur).eq('status','pending').order('requested_at',{ascending:true});if(res.error)throw res.error;rows=res.data||[];}
+  catch(e){wrap.innerHTML='';return;}
+  if(!rows.length){wrap.innerHTML='';return;}
+  var base=(S._empsCloud&&S._empsCloud[S.cur])||[];
+  var baseIds={};base.forEach(function(e){baseIds[e.id]=e.name;});
+  var h='<div style="font-weight:700;margin:14px 2px 6px;color:var(--brand);font-size:13px">בקשות אישור עובדים ('+rows.length+')</div>';
+  rows.forEach(function(r){
+    var pay=r.payload||[];var payIds={};pay.forEach(function(e){payIds[e.id]=e.name;});
+    var added=[],removed=[];
+    pay.forEach(function(e){if(!baseIds[e.id])added.push(e.name);});
+    base.forEach(function(e){if(!payIds[e.id])removed.push(e.name);});
+    var label=added.length?('הוספה: '+added.join(', ')):(removed.length?('הסרה: '+removed.join(', ')):'עדכון פרטי עובד');
+    h+='<div style="padding:10px 4px;border-bottom:1px solid var(--line)">'
+      +'<div style="font-weight:600">'+esc(label)+'</div>'
+      +(r.note?'<div style="font-size:12px;color:var(--muted)">'+esc(r.note)+'</div>':'')
+      +'<div style="display:flex;gap:8px;margin-top:8px">'
+      +'<button data-id="'+r.id+'" class="pcOk" style="background:var(--ok,#2e7d32);color:#fff;flex:1;padding:9px;border:none;border-radius:8px;font-weight:700">אישור</button>'
+      +'<button data-id="'+r.id+'" class="pcNo" style="background:var(--no,#c62828);color:#fff;flex:1;padding:9px;border:none;border-radius:8px;font-weight:700">דחייה</button>'
+      +'</div></div>';
+  });
+  wrap.innerHTML=h;
+  wrap.querySelectorAll('.pcOk').forEach(function(b){b.onclick=async function(){b.disabled=true;try{var r=await sb.rpc('approve_emp_change',{p_id:b.dataset.id});if(r.error)throw r.error;toast('אושר');renderPending();}catch(e){toast('שגיאה באישור');b.disabled=false;}};});
+  wrap.querySelectorAll('.pcNo').forEach(function(b){b.onclick=async function(){b.disabled=true;try{var r=await sb.rpc('reject_emp_change',{p_id:b.dataset.id});if(r.error)throw r.error;toast('נדחה');renderPending();}catch(e){toast('שגיאה בדחייה');b.disabled=false;}};});
+}
 /* ===== Cloud data layer (Supabase) ===== */
 async function cloudLoad(){
-  S={locations:[],sched:{},avail:{},fixed:{},cur:null,roles:{}};
+  S={locations:[],sched:{},avail:{},fixed:{},cur:null,roles:{},_empsCloud:{}};
   const {data:stores,error:e1}=await sb.from('stores').select('id,name,created_at').order('created_at',{ascending:true});
   if(e1)throw e1;
   let blobs=[];
@@ -596,6 +651,7 @@ async function cloudLoad(){
     S.sched[st.id]=b.sched||{};
     S.avail[st.id]=b.avail||{};
     S.fixed[st.id]=b.fixed||{};
+    if(!S._empsCloud)S._empsCloud={};S._empsCloud[st.id]=(b.employees||[]).slice();
   });
   try{
     const {data:{user}}=await sb.auth.getUser();
@@ -634,6 +690,7 @@ async function importLocalToCloud(){
 
 function myRole(locId){return (S.roles||{})[locId]||'owner';}
 function canManage(locId){var r=myRole(locId);return r==='owner'||r==='coowner';}
+function isOwner(locId){return myRole(locId)==='owner';}
 async function acceptInvites(){try{const {data}=await sb.rpc('accept_invites');return data||0;}catch(e){return 0;}}
 async function inviteMember(locId,email,role){const {data,error}=await sb.rpc('invite_member',{p_store:locId,p_email:email,p_role:role});if(error)throw error;return data;}
 async function listMembers(locId){const {data,error}=await sb.rpc('list_members',{p_store:locId});if(error)throw error;return data||{members:[],invites:[]};}
@@ -1107,6 +1164,7 @@ document.getElementById('btnSaveEmp').onclick=()=>{
 };
 document.getElementById('btnDelEmp').onclick=async()=>{
   if(!(await askConfirm('למחוק את העובד? השיבוצים שלו יוסרו.')))return;
+  if(!isOwner(S.cur)){var _p=loc().employees.filter(function(e){return e.id!==editEmpId;});var _n=(loc().employees.find(function(e){return e.id===editEmpId;})||{}).name||'';sb.rpc('request_emp_change',{p_store:S.cur,p_emps:_p,p_note:'מחיקת עובד: '+_n}).then(function(r){toast(r&&r.error?'שגיאה בשליחת הבקשה':'נשלח לאישור הבעלים');});closeSheets();return;}
   loc().employees=loc().employees.filter(e=>e.id!==editEmpId);
   const ws=S.sched[S.cur]||{};Object.values(ws).forEach(w=>{Object.keys(w).forEach(k=>{w[k]=w[k].filter(c=>c.empId!==editEmpId);});});
   const fx=(S.fixed||{})[S.cur]||{};Object.keys(fx).forEach(k=>{fx[k]=fx[k].filter(c=>c.empId!==editEmpId);});
@@ -1118,6 +1176,7 @@ function openManage(){
   if(!canManage(S.cur)){toast('רק בעלים או שותף יכולים לנהל הרשאות');return;}
   document.getElementById('mgrLocName').textContent=loc()?loc().name:'';
   renderManage();
+  if(isOwner(S.cur)){renderPending();}else{var _pw=document.getElementById('pendWrap');if(_pw)_pw.innerHTML='';}
   openSheet('mgrSheet');
 }
 async function renderManage(){
