@@ -496,7 +496,7 @@ function mergePreset(){
       loc().employees.push({id:'E'+Date.now()+'_'+i,name:p.name,phone:'',role:p.role});n++;
     }
   });
-  save();return n;
+  save({t:'emps'});return n;
 }
 
 async function load(){
@@ -508,19 +508,80 @@ async function load(){
   if(!S.locations.find(l=>l.id===S.cur))S.cur=S.locations[0].id;
   if(!raw)mergePreset();
 }
-let saveT,localOK=null,remoteOK=null;
-function save(){
+let saveT,localOK=null,remoteOK=null,rtChan=null;
+function save(cloud){
   const data=JSON.stringify(S);
   try{localStorage.setItem('sched-v1',data);localOK=true;}catch(e){localOK=false;}
+  if(cloud===false)return;
   const cur=S.cur;
-  clearTimeout(saveT);saveT=setTimeout(async()=>{
-    try{await cloudSaveBranch(cur);remoteOK=true;}catch(e){remoteOK=false;}
-  },500);
+  if(cloud===undefined){
+    clearTimeout(saveT);saveT=setTimeout(async()=>{try{await cloudSaveBranch(cur);remoteOK=true;}catch(e){remoteOK=false;}},500);
+    return;
+  }
+  cloudWrite(cur,cloud);
+}
+async function cloudWrite(locId,desc){
+  if(!sb||!locId||!desc)return;
+  try{
+    var w=wkKey(),c;
+    if(desc.t==='sched'){c=cellKey(desc.di,desc.sh);await sb.rpc('set_sched_cell',{p_store:locId,p_week:w,p_cell:c,p_val:(((S.sched[locId]||{})[w]||{})[c]||[])});}
+    else if(desc.t==='fixed'){c=cellKey(desc.di,desc.sh);await sb.rpc('set_fixed_cell',{p_store:locId,p_cell:c,p_val:(((S.fixed||{})[locId]||{})[c]||[])});}
+    else if(desc.t==='avail'){c=cellKey(desc.di,desc.sh);var v=((((S.avail[locId]||{})[w]||{})[desc.emp]||{})[c])||'unk';await sb.rpc('set_avail_cell',{p_store:locId,p_week:w,p_emp:desc.emp,p_cell:c,p_val:v});}
+    else if(desc.t==='emps'){await sb.rpc('set_employees',{p_store:locId,p_emps:((S.locations.find(function(l){return l.id===locId;})||{}).employees||[])});}
+    else if(desc.t==='name'){await sb.rpc('set_store_name',{p_store:locId,p_name:((S.locations.find(function(l){return l.id===locId;})||{}).name||'')});}
+    remoteOK=true;
+  }catch(e){remoteOK=false;}
+}
+async function pushSchedWeek(locId,w){
+  var cells=((S.sched[locId]||{})[w])||{};
+  for(var c in cells){try{await sb.rpc('set_sched_cell',{p_store:locId,p_week:w,p_cell:c,p_val:cells[c]||[]});}catch(e){}}
+}
+async function pushAvailEmp(locId,w,emp){
+  var cells=((((S.avail[locId]||{})[w]||{})[emp])||{});
+  for(var c in cells){try{await sb.rpc('set_avail_cell',{p_store:locId,p_week:w,p_emp:emp,p_cell:c,p_val:cells[c]});}catch(e){}}
+}
+async function fixedBackfill(){
+  try{
+    var raw=localStorage.getItem('sched-v1');if(!raw)return;
+    var ls=JSON.parse(raw);var lf=(ls&&ls.fixed)||{};
+    for(var locId in lf){
+      if(!S.locations.find(function(l){return l.id===locId;}))continue;
+      S.fixed=S.fixed||{};S.fixed[locId]=S.fixed[locId]||{};
+      var cloudF=S.fixed[locId],localF=lf[locId]||{};
+      for(var cell in localF){
+        if(localF[cell]&&localF[cell].length&&!(cell in cloudF)){
+          S.fixed[locId][cell]=localF[cell];
+          try{await sb.rpc('set_fixed_cell',{p_store:locId,p_cell:cell,p_val:localF[cell]});}catch(e){}
+        }
+      }
+    }
+  }catch(e){}
+}
+function startRealtime(){
+  if(!sb)return;
+  if(rtChan){try{sb.removeChannel(rtChan);}catch(e){}rtChan=null;}
+  rtChan=sb.channel('store_data_rt')
+    .on('postgres_changes',{event:'UPDATE',schema:'public',table:'store_data'},function(payload){
+      try{
+        var row=payload&&payload.new;if(!row||!row.store_id)return;
+        var id=row.store_id;var locObj=S.locations.find(function(l){return l.id===id;});
+        if(!locObj)return;
+        var d=row.data||{};
+        if('name' in d && d.name)locObj.name=d.name;
+        if('employees' in d)locObj.employees=d.employees||[];
+        S.sched[id]=d.sched||{};
+        S.avail[id]=d.avail||{};
+        S.fixed=S.fixed||{};S.fixed[id]=d.fixed||{};
+        try{localStorage.setItem('sched-v1',JSON.stringify(S));}catch(e){}
+        if(S.cur===id&&typeof render==='function')render();
+      }catch(e){}
+    })
+    .subscribe();
 }
 
 /* ===== Cloud data layer (Supabase) ===== */
 async function cloudLoad(){
-  S={locations:[],sched:{},avail:{},cur:null,roles:{}};
+  S={locations:[],sched:{},avail:{},fixed:{},cur:null,roles:{}};
   const {data:stores,error:e1}=await sb.from('stores').select('id,name,created_at').order('created_at',{ascending:true});
   if(e1)throw e1;
   let blobs=[];
@@ -534,6 +595,7 @@ async function cloudLoad(){
     S.locations.push({id:st.id,name:(b.name||st.name),employees:(b.employees||[])});
     S.sched[st.id]=b.sched||{};
     S.avail[st.id]=b.avail||{};
+    S.fixed[st.id]=b.fixed||{};
   });
   try{
     const {data:{user}}=await sb.auth.getUser();
@@ -543,7 +605,7 @@ async function cloudLoad(){
 }
 function branchBlob(locId){
   const l=S.locations.find(x=>x.id===locId)||{};
-  return {name:l.name||'',employees:l.employees||[],sched:S.sched[locId]||{},avail:S.avail[locId]||{}};
+  return {name:l.name||'',employees:l.employees||[],sched:S.sched[locId]||{},avail:S.avail[locId]||{},fixed:(S.fixed&&S.fixed[locId])||{}};
 }
 async function cloudSaveBranch(locId){
   if(!sb||!locId)return;
@@ -553,7 +615,7 @@ async function createBranch(name){
   const {data,error}=await sb.rpc('create_store',{p_name:name});
   if(error)throw error;
   const id=data;
-  S.locations.push({id,name:name,employees:[]});S.sched[id]={};S.avail[id]={};S.cur=id;
+  S.locations.push({id,name:name,employees:[]});S.sched[id]={};S.avail[id]={};S.fixed=S.fixed||{};S.fixed[id]={};S.cur=id;
   await cloudSaveBranch(id);
   return id;
 }
@@ -609,13 +671,13 @@ function displayCell(di,shId){
   getCell(di,'m').forEach(function(a){if(shiftEndsLate(a.hrs)&&!have[a.empId]){have[a.empId]=1;spill.push({empId:a.empId,role:a.role,hrs:a.hrs,derived:true});}});
   return base.concat(sortRole(spill));
 }
-function setCell(di,sh,arr){S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save();}
+function setCell(di,sh,arr){S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save({t:'sched',di:di,sh:sh});}
 /* משמרות קבועות: תבנית שממלאת כל שבוע חדש אוטומטית */
 function getFix(di,sh){return(((S.fixed||{})[S.cur])||{})[cellKey(di,sh)]||[];}
-function setFix(di,sh,arr){S.fixed=S.fixed||{};S.fixed[S.cur]=S.fixed[S.cur]||{};S.fixed[S.cur][cellKey(di,sh)]=arr;save();}
+function setFix(di,sh,arr){S.fixed=S.fixed||{};S.fixed[S.cur]=S.fixed[S.cur]||{};S.fixed[S.cur][cellKey(di,sh)]=arr;save({t:'fixed',di:di,sh:sh});}
 function isFixed(empId,di,sh){return !!getFix(di,sh).find(a=>a.empId===empId);}
 function getAv(empId,di,sh){return((((S.avail[S.cur]||{})[wkKey()]||{})[empId]||{})[cellKey(di,sh)])||'unk';}
-function setAv(empId,di,sh,v){S.avail[S.cur]=S.avail[S.cur]||{};const w=S.avail[S.cur][wkKey()]=S.avail[S.cur][wkKey()]||{};w[empId]=w[empId]||{};w[empId][cellKey(di,sh)]=v;save();}
+function setAv(empId,di,sh,v){S.avail[S.cur]=S.avail[S.cur]||{};const w=S.avail[S.cur][wkKey()]=S.avail[S.cur][wkKey()]||{};w[empId]=w[empId]||{};w[empId][cellKey(di,sh)]=v;save({t:'avail',emp:empId,di:di,sh:sh});}
 
 /* ---- דיאלוגים מובנים (prompt/confirm חסומים בסביבת Artifact) ---- */
 function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){return({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'})[c];});}
@@ -641,7 +703,7 @@ function render(){
   const tabs=document.getElementById('locTabs');tabs.innerHTML='';
   S.locations.forEach(l=>{
     const b=document.createElement('button');b.className='loc-tab'+(l.id===S.cur?' active':'');b.textContent=l.name;
-    b.onclick=()=>{S.cur=l.id;save();render();};tabs.appendChild(b);
+    b.onclick=()=>{S.cur=l.id;save(false);render();};tabs.appendChild(b);
   });
   const add=document.createElement('button');add.className='loc-add';add.textContent='+ סניף';
   add.onclick=async()=>{const n=await askText('שם הסניף החדש','','לדוגמה: סניף רחובות');if(!n||!n.trim())return;try{await createBranch(n.trim());render();}catch(e){toast('יצירת הסניף נכשלה');}};
@@ -934,7 +996,7 @@ function renderPbList(){
       (isEmp?'<span class="emp-btn" style="color:var(--ok)">✓ עובד</span>':'<button class="emp-btn add" style="background:var(--brand);color:#fff">+ הוסף</button>');
     if(!isEmp)it.querySelector('.add').onclick=()=>{
       loc().employees.push({id:'E'+Date.now(),name:c.name,phone:c.phone||'',role:'cash'});
-      save();toast(c.name+' נוסף לסניף '+loc().name);renderPbList();
+      save({t:'emps'});toast(c.name+' נוסף לסניף '+loc().name);renderPbList();
     };
     body.appendChild(it);
   });
@@ -952,11 +1014,11 @@ document.getElementById('pbFile').onchange=async(ev)=>{
   }
   ev.target.value='';
   S.phonebook.sort((a,b)=>a.name.localeCompare(b.name,'he'));
-  save();toast(n?'נטענו '+n+' אנשי קשר':'לא נמצאו אנשי קשר חדשים');renderPbList();
+  save(false);toast(n?'נטענו '+n+' אנשי קשר':'לא נמצאו אנשי קשר חדשים');renderPbList();
 };
 document.getElementById('btnPbClear').onclick=async()=>{
   if(!(await askConfirm('לנקות את כל ספר הטלפונים? (העובדים לא יימחקו)')))return;
-  S.phonebook=[];save();renderPbList();
+  S.phonebook=[];save(false);renderPbList();
 };
 
 /* ---- ייבוא מאנשי קשר (Contact Picker API) ---- */
@@ -996,7 +1058,7 @@ document.getElementById('btnRoleReviewAdd').onclick=()=>{
     loc().employees.push({id:'E'+Date.now()+'_c'+i,name:c.name,phone:c.phone,role:c.role});n++;
   });
   pendingContacts=[];
-  save();toast(n?'נוספו '+n+' עובדים':'לא נוספו עובדים חדשים');openEmployees();
+  save({t:'emps'});toast(n?'נוספו '+n+' עובדים':'לא נוספו עובדים חדשים');openEmployees();
 };
 /* ---- מילוי מספר מאנשי הקשר בטופס עריכת עובד ---- */
 document.getElementById('btnPhoneFromContacts').onclick=async()=>{
@@ -1020,7 +1082,7 @@ document.getElementById('vcfFile').onchange=async(ev)=>{
     });
   }
   ev.target.value='';
-  save();toast(n?'נוספו '+n+' עובדים':'לא זוהו אנשי קשר חדשים בקובץ');openEmployees();
+  save({t:'emps'});toast(n?'נוספו '+n+' עובדים':'לא זוהו אנשי קשר חדשים בקובץ');openEmployees();
 };
 
 let editEmpId=null;
@@ -1041,14 +1103,14 @@ document.getElementById('btnSaveEmp').onclick=()=>{
   const role=document.getElementById('fRole').value;
   if(editEmpId){const e=loc().employees.find(x=>x.id===editEmpId);e.name=name;e.phone=phone;e.role=role;}
   else loc().employees.push({id:'E'+Date.now(),name,phone,role});
-  save();openEmployees();
+  save({t:'emps'});openEmployees();
 };
 document.getElementById('btnDelEmp').onclick=async()=>{
   if(!(await askConfirm('למחוק את העובד? השיבוצים שלו יוסרו.')))return;
   loc().employees=loc().employees.filter(e=>e.id!==editEmpId);
   const ws=S.sched[S.cur]||{};Object.values(ws).forEach(w=>{Object.keys(w).forEach(k=>{w[k]=w[k].filter(c=>c.empId!==editEmpId);});});
   const fx=(S.fixed||{})[S.cur]||{};Object.keys(fx).forEach(k=>{fx[k]=fx[k].filter(c=>c.empId!==editEmpId);});
-  save();openEmployees();
+  save(false);openEmployees();cloudSaveBranch(S.cur).catch(function(){});
 };
 
 /* ---- Members / permissions (phase 2) ---- */
@@ -1158,7 +1220,7 @@ function applySubmission(sub){
   S.avail[S.cur]=S.avail[S.cur]||{};S.avail[S.cur][wk]=S.avail[S.cur][wk]||{};S.avail[S.cur][wk][sub.emp_id]=S.avail[S.cur][wk][sub.emp_id]||{};
   var tgt=S.avail[S.cur][wk][sub.emp_id];
   Object.keys(data).forEach(function(k){var v=data[k];if(v==='yes'||v==='no'||v==='unk')tgt[k]=v;});
-  save();toast('הזמינות של '+emp.name+' הוחלה (שבוע '+wk+')');
+  save(false);pushAvailEmp(S.cur,wk,sub.emp_id);toast('הזמינות של '+emp.name+' הוחלה (שבוע '+wk+')');
 }
 document.getElementById('btnAvailLink').onclick=function(){openAvailLink();};
 
@@ -1247,7 +1309,7 @@ function ilPhone(p){p=p.replace(/[^0-9]/g,'');if(p.startsWith('0'))p='972'+p.sli
 
 /* ---- Rename location ---- */
 document.getElementById('btnRenameLoc').onclick=async()=>{
-  const n=await askText('שם הסניף',loc().name);if(n&&n.trim()){const id=S.cur;loc().name=n.trim();save();render();try{await sb.from('stores').update({name:n.trim()}).eq('id',id);}catch(e){}}
+  const n=await askText('שם הסניף',loc().name);if(n&&n.trim()){const id=S.cur;loc().name=n.trim();save({t:'name'});render();try{await sb.from('stores').update({name:n.trim()}).eq('id',id);}catch(e){}}
 };
 
 /* ================= Week nav ================= */
@@ -1269,7 +1331,7 @@ document.getElementById('wkCopy').onclick=async()=>{
   const hasData=curW&&Object.values(curW).some(a=>a.length);
   if(hasData&&!(await askConfirm('השבוע הנוכחי כבר מכיל שיבוצים. להחליף אותם בלוז של השבוע הקודם?')))return;
   S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=src;
-  save();render();toast('הלוז הועתק מהשבוע הקודם ✓');
+  save(false);pushSchedWeek(S.cur,wkKey());render();toast('הלוז הועתק מהשבוע הקודם ✓');
 };
 
 /* ================= Print & Share ================= */
@@ -1370,6 +1432,8 @@ async function bootApp(){
   if(!loaded){showLocked('בעיית תקשורת עם השרת.\nבדוק/י חיבור לאינטרנט ורענן/י.',true);return;}
   if(!S.locations.length){showLocked('הוסרת מהסניף או שטרם הוזמנת.\nאין לך גישה לאף סניף — פנה/י לבעל/ת העסק.',false);return;}
   hideLocked();
+  try{await fixedBackfill();}catch(e){}
+  startRealtime();
   render();
 }
 function aMsg(t,kind){const m=document.getElementById('authMsg');if(!t){m.className='auth-msg';m.textContent='';return;}m.textContent=t;m.className='auth-msg '+(kind||'err');}
