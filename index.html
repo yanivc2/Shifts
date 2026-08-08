@@ -403,9 +403,23 @@ main{padding:12px}
 <div class="sheet" id="waSheet">
   <div class="sheet-head"><h2>בקשת זמינות בוואטסאפ</h2><p>ההודעה שתישלח: «נא לשלוח זמינות למשמרות». וואטסאפ פותח צ'אט אחד בכל פעם — לחצו "שלח" ליד כל עובד שתרצו.</p>
     <input class="srch" id="waSearch" placeholder="🔍 חיפוש עובד"></div>
+  <div style="padding:6px 14px 0;display:flex;flex-direction:column;gap:6px">
+    <button class="btn btn-primary" id="btnPickShifts" style="margin:0">🗓️ בחר משמרות לבקשה</button>
+    <div id="waShiftsSummary" style="font-size:12.5px;color:var(--muted);min-height:16px"></div>
+  </div>
   <div class="sheet-body" id="waBody"></div>
   <div class="sheet-foot">
     <button class="btn btn-ghost" onclick="openEmployees()">חזרה</button>
+  </div>
+</div>
+
+<div class="sheet" id="waShiftSheet">
+  <div class="sheet-head"><h2>בחירת משמרות</h2><p>סמן/י את המשמרות שאתה צריך. הבחירה תיכנס להודעת הוואטסאפ שתישלח לעובד.</p></div>
+  <div class="sheet-body" id="waShiftGrid"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" id="btnShiftsDone">אישור</button>
+    <button class="btn btn-ghost" id="btnShiftsClear" style="margin-top:8px">נקה בחירה</button>
+    <button class="btn btn-ghost" onclick="openWaAvail()" style="margin-top:8px">חזרה</button>
   </div>
 </div>
 
@@ -903,11 +917,40 @@ document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
 document.getElementById('btnSmartPaste').onclick=()=>startAddEmployees();
 document.getElementById('btnWaAvail').onclick=()=>openWaAvail();
 const WA_AVAIL_MSG='נא לשלוח זמינות למשמרות';
+let waShifts=[];
+function waShiftText(){
+  if(!waShifts.length)return '';
+  var order={m:0,e:1,n:2};
+  var arr=waShifts.slice().map(function(k){var q=k.split('-');return {di:+q[0],sh:q[1]};});
+  arr.sort(function(a,b){return a.di-b.di||order[a.sh]-order[b.sh];});
+  return arr.map(function(x){var sh=SHIFTS.find(function(z){return z.id===x.sh;})||{};return DAYS[x.di]+' '+(sh.name||'');}).join(', ');
+}
+function waMsgFor(emp){
+  var t=waShiftText();
+  if(t)return 'היי '+emp.name+', אני צריך אותך במשמרות '+t+' אוקיי?';
+  return WA_AVAIL_MSG;
+}
+function renderWaShiftGrid(){
+  var g=document.getElementById('waShiftGrid');if(!g)return;
+  var h='';
+  DAYS.forEach(function(dn,di){
+    h+='<div style="margin:2px 0 8px"><div style="font-weight:700;margin:0 2px 4px">'+dn+'</div><div style="display:flex;gap:6px">';
+    SHIFTS.forEach(function(sh){
+      var key=di+'-'+sh.id;var on=waShifts.indexOf(key)>=0;
+      h+='<button data-k="'+key+'" class="wsCell" style="flex:1;padding:9px 4px;border-radius:9px;border:1.5px solid '+(on?'var(--brand)':'var(--line)')+';background:'+(on?'var(--brand)':'#fff')+';color:'+(on?'#fff':'#222')+';font-weight:700;font-size:13px">'+sh.ico+' '+sh.name+'</button>';
+    });
+    h+='</div></div>';
+  });
+  g.innerHTML=h;
+  g.querySelectorAll('.wsCell').forEach(function(b){b.onclick=function(){var k=b.dataset.k;var i=waShifts.indexOf(k);if(i>=0)waShifts.splice(i,1);else waShifts.push(k);renderWaShiftGrid();};});
+}
+function openWaShifts(){renderWaShiftGrid();openSheet('waShiftSheet');}
 function waPhone(p){let d=(p||'').replace(/\D/g,'');if(!d)return '';if(d.slice(0,3)==='972')return d;if(d[0]==='0')return '972'+d.slice(1);return d;}
 function openWaAvail(){const inp=document.getElementById('waSearch');inp.value='';inp.oninput=renderWaList;renderWaList();openSheet('waSheet');}
 function renderWaList(){
   const q=document.getElementById('waSearch').value.trim();
   const body=document.getElementById('waBody');body.innerHTML='';
+  var _sum=document.getElementById('waShiftsSummary');if(_sum){var _t=waShiftText();_sum.textContent=_t?('משמרות שנבחרו: '+_t):'לא נבחרו משמרות — תישלח בקשת זמינות כללית';}
   const list=loc().employees.filter(e=>!q||e.name.includes(q)||(e.phone||'').includes(q));
   if(!list.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">אין עובדים להצגה</p>';return;}
   list.forEach(emp=>{
@@ -921,7 +964,7 @@ function renderWaList(){
       btn.className='emp-btn';
       btn.style.cssText='background:#25D366;color:#fff;text-decoration:none;display:inline-flex;align-items:center';
       btn.textContent='📲 שלח';
-      btn.href='https://wa.me/'+ph+'?text='+encodeURIComponent(WA_AVAIL_MSG);
+      var _msg=waMsgFor(emp);btn.href='https://wa.me/'+ph+'?text='+encodeURIComponent(_msg);
       btn.target='_blank';btn.rel='noopener';
       btn.onclick=()=>{setTimeout(()=>{btn.textContent='✓ נפתח';btn.style.background='var(--muted)';},400);};
     }else{
@@ -933,6 +976,9 @@ function renderWaList(){
 }
 
 /* ---- גיבוי ושחזור ---- */
+var _bps=document.getElementById('btnPickShifts');if(_bps)_bps.onclick=openWaShifts;
+var _bsd=document.getElementById('btnShiftsDone');if(_bsd)_bsd.onclick=function(){openWaAvail();};
+var _bsc=document.getElementById('btnShiftsClear');if(_bsc)_bsc.onclick=function(){waShifts=[];renderWaShiftGrid();};
 document.getElementById('btnBackup').onclick=async()=>{
   const data=JSON.stringify(S,null,1);
   const fname='גיבוי-סידור-'+new Date().toISOString().slice(0,10)+'.json';
