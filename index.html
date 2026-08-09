@@ -67,9 +67,9 @@ main{padding:12px}
 .empty-hint{color:var(--muted);font-size:13px}
 
 /* ---------- Bottom action bar ---------- */
-.actionbar{position:fixed;bottom:0;right:0;left:0;background:var(--card);border-top:1px solid var(--line);display:flex;gap:8px;padding:10px 12px calc(10px + env(safe-area-inset-bottom));z-index:30}
-.act{flex:1;padding:12px 4px;border-radius:12px;font-size:13px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:3px;background:var(--bg);color:var(--brand)}
-.act span{font-size:19px}
+.actionbar{position:fixed;bottom:0;right:0;left:0;background:var(--card);border-top:1px solid var(--line);display:flex;gap:6px;padding:10px 8px calc(10px + env(safe-area-inset-bottom));z-index:30}
+.act{flex:1;padding:10px 2px;border-radius:12px;font-size:11.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--bg);color:var(--brand)}
+.act span{font-size:17px}
 .act.primary{background:var(--brand);color:#fff}
 
 /* ---------- Sheets / modals ---------- */
@@ -308,9 +308,10 @@ main{padding:12px}
 
 <div class="actionbar">
   <button class="act" id="btnEmps"><span>👥</span>עובדים</button>
-  <button class="act" id="btnPrint"><span>🖨️</span>הדפסה A4</button>
+  <button class="act" id="btnPrint"><span>🖨️</span>הדפסה</button>
   <button class="act" id="btnGrid"><span>📅</span>לוח מלא</button>
-  <button class="act primary" id="btnShare"><span>📤</span>שיתוף בוואטסאפ</button>
+  <button class="act" id="btnSettings"><span>⚙️</span>הגדרות</button>
+  <button class="act primary" id="btnShare"><span>📤</span>שיתוף</button>
 </div>
 
 <div class="overlay" id="overlay"></div>
@@ -332,17 +333,23 @@ main{padding:12px}
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
     <button class="btn btn-ghost" id="btnSmartPaste">➕ הוספת מספר עובדים</button>
     <button class="btn btn-ghost" id="btnWaAvail">📲 בקשת זמינות בוואטסאפ</button>
-    <button class="btn btn-ghost" id="btnManage" style="display:none">👥 שותפים והרשאות</button>
     <button class="btn btn-ghost" id="btnAvailLink">🔗 קישור זמינות (מילוי עצמי)</button>
-    <div style="display:flex;gap:8px;margin-top:8px">
-      <button class="btn btn-ghost" id="btnBackup" style="margin:0">💾 גיבוי נתונים</button>
-      <button class="btn btn-ghost" id="btnRestore" style="margin:0">♻️ שחזור מגיבוי</button>
-      <button class="btn btn-ghost" id="btnImportCloud" style="margin:0">☁️ ייבוא נתוני המכשיר לענן</button>
-    </div>
     <button class="btn btn-ghost" onclick="closeSheets()">סגירה</button>
   </div>
   <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
   <input type="file" id="vcfFile" accept=".vcf,text/vcard,text/x-vcard,text/directory" multiple style="display:none">
+</div>
+
+<!-- Settings (owner/coowner) -->
+<div class="sheet" id="setSheet">
+  <div class="sheet-head"><h2>⚙️ הגדרות</h2><p>ניהול שותפים וגיבוי הנתונים</p></div>
+  <div class="sheet-body">
+    <button class="btn btn-ghost" id="btnManage" style="width:100%;margin-bottom:8px">👥 שותפים והרשאות</button>
+    <button class="btn btn-ghost" id="btnBackup" style="width:100%;margin-bottom:8px">💾 גיבוי נתונים</button>
+    <button class="btn btn-ghost" id="btnRestore" style="width:100%;margin-bottom:8px">♻️ שחזור מגיבוי</button>
+    <button class="btn btn-ghost" id="btnImportCloud" style="width:100%;margin-bottom:8px">☁️ ייבוא נתוני המכשיר לענן</button>
+  </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סגירה</button></div>
 </div>
 
 <!-- Members / permissions (phase 2) -->
@@ -771,6 +778,7 @@ function askConfirm(title){return new Promise(res=>{
 
 /* ================= Render main ================= */
 function render(){
+  var _st=document.getElementById('btnSettings');if(_st)_st.style.display=canManage(S.cur)?'flex':'none';
   const tabs=document.getElementById('locTabs');tabs.innerHTML='';
   S.locations.forEach(l=>{
     const b=document.createElement('button');b.className='loc-tab'+(l.id===S.cur?' active':'');b.textContent=l.name;
@@ -890,7 +898,6 @@ function openEmployees(){
   const inp=document.getElementById('empSearch');
   inp.oninput=renderEmpList;
   renderEmpList();
-  var _bm=document.getElementById('btnManage');if(_bm)_bm.style.display=canManage(S.cur)?'block':'none';
   openSheet('empSheet');
 }
 function renderEmpList(){
@@ -1271,6 +1278,7 @@ document.getElementById('btnInvite').onclick=async function(){
   b.disabled=false;
 };
 document.getElementById('btnManage').onclick=function(){openManage();};
+document.getElementById('btnSettings').onclick=function(){if(!canManage(S.cur)){toast('ההגדרות זמינות לבעלים ולשותפים בלבד');return;}openSheet('setSheet');};
 /* ---- Availability self-fill link + submissions (phase 3, owner side) ---- */
 async function getAvailToken(locId){const {data,error}=await sb.from('store_tokens').select('token').eq('store_id',locId).order('created_at',{ascending:false}).limit(1);if(error)throw error;return (data&&data[0]&&data[0].token)||null;}
 async function createAvailToken(locId){const {data,error}=await sb.rpc('create_avail_token',{p_store:locId});if(error)throw error;return data;}
