@@ -657,6 +657,7 @@ async function renderPending(){
 }
 /* ===== Cloud data layer (Supabase) ===== */
 async function cloudLoad(){
+  var _prevCur=null;try{_prevCur=(typeof S!=='undefined'&&S&&S.cur)?S.cur:((JSON.parse(localStorage.getItem('sched-v1')||'{}')||{}).cur||null);}catch(e){}
   S={locations:[],sched:{},avail:{},fixed:{},cur:null,roles:{},_empsCloud:{}};
   const {data:stores,error:e1}=await sb.from('stores').select('id,name,created_at').order('created_at',{ascending:true});
   if(e1)throw e1;
@@ -678,7 +679,7 @@ async function cloudLoad(){
     const {data:{user}}=await sb.auth.getUser();
     if(user){const {data:mems}=await sb.from('store_members').select('store_id,role').eq('user_id',user.id);(mems||[]).forEach(m=>{S.roles[m.store_id]=m.role;});}
   }catch(e){}
-  if(S.locations.length)S.cur=S.locations[0].id;
+  if(S.locations.length)S.cur=(_prevCur&&S.locations.find(l=>l.id===_prevCur))?_prevCur:S.locations[0].id;
 }
 function branchBlob(locId){
   const l=S.locations.find(x=>x.id===locId)||{};
