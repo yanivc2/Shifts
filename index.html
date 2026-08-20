@@ -78,23 +78,32 @@ header h1{font-size:18px;font-weight:700;display:flex;align-items:center;justify
 
 /* ---------- Day cards ---------- */
 main{padding:12px}
-.day-card{background:var(--card);border-radius:var(--radius);margin-bottom:12px;overflow:hidden;box-shadow:0 1px 2px rgba(20,30,45,.06)}
-.day-head{padding:10px 14px;font-weight:700;font-size:15px;border-bottom:1px solid var(--line);display:flex;justify-content:space-between;color:var(--brand)}
-.day-head small{color:var(--muted);font-weight:400}
-.shift-row{display:flex;border-bottom:1px solid var(--line);min-height:56px}
-.shift-row:last-child{border-bottom:none}
-.shift-label{flex:0 0 64px;display:flex;flex-direction:column;align-items:center;justify-content:center;font-size:13px;font-weight:700;gap:2px;border-left:1px solid var(--line)}
+.day-card{background:var(--card);border-radius:28px;margin-bottom:12px;overflow:hidden;box-shadow:0 1px 2px rgba(46,43,37,.14)}
+.day-head{padding:13px 16px 10px;font-size:19px;font-family:"Suez One",Georgia,serif;font-weight:400;display:flex;justify-content:space-between;align-items:center;gap:8px;color:var(--ink)}
+.day-head .dh-l{display:flex;align-items:baseline;gap:7px;min-width:0}
+.cov{flex:0 0 auto;font:700 11.5px/1 Assistant,sans-serif;padding:4px 9px;border-radius:999px;background:var(--bg);color:var(--muted)}
+.cov.full{background:var(--night-bg);color:var(--night)}
+.cov.part{background:var(--morning-bg);color:var(--morning)}
+.day-head small{color:var(--muted);font-weight:600;font-size:12.5px;font-family:Assistant,sans-serif}
+.shift-row{display:flex;gap:10px;align-items:flex-start;margin:0 12px 8px;border-radius:20px;padding:9px 11px;min-height:52px}
+.shift-row:last-child{margin-bottom:12px}
+.shift-label{flex:0 0 52px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start;font-size:11.5px;font-weight:800;gap:2px;background:transparent;border-left:0 solid var(--line)}
 .shift-label span{font-size:16px}
-.sl-morning{background:var(--morning-bg);color:var(--morning)}
-.sl-evening{background:var(--evening-bg);color:var(--evening)}
-.sl-night{background:var(--night-bg);color:var(--night)}
-.shift-body{flex:1;padding:8px 10px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.emp-chip{display:inline-flex;align-items:center;gap:5px;background:var(--bg);border:1px solid var(--line);border-radius:999px;padding:4px 10px;font-size:13.5px;font-weight:600}
+.sl-morning{color:var(--morning)}
+.shift-row.r-morning{background:var(--morning-bg)}
+.sl-evening{color:var(--evening)}
+.shift-row.r-evening{background:var(--evening-bg)}
+.sl-night{color:var(--night)}
+.shift-row.r-night{background:var(--night-bg)}
+.shift-body{flex:1;padding:0;display:flex;flex-wrap:wrap;gap:6px;align-items:center;min-height:34px}
+.emp-chip{display:inline-flex;align-items:center;gap:6px;background:var(--card);border:1.5px solid var(--line);border-radius:999px;padding:4px 10px 4px 5px;font-size:13px;font-weight:700;white-space:nowrap}
+.av{flex:0 0 auto;width:22px;height:22px;border-radius:999px;display:inline-flex;align-items:center;justify-content:center;font:800 11px/1 Assistant,sans-serif;background:var(--line);color:var(--ink)}
+.av.store{background:#aebf92;color:#56633f}
 .emp-chip .role{font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--brand-soft);color:var(--brand)}
 .emp-chip .role.store{background:#EFEAF9;color:#6B4FBB}
-.emp-chip.warn{border-color:var(--no);background:var(--no-bg)}
+.emp-chip.warn{border-color:var(--morning);background:var(--brand-soft)}
 .emp-chip.warn::after{content:"⚠";font-size:12px;color:var(--no)}
-.cell-add{width:30px;height:30px;border-radius:999px;background:var(--brand-soft);color:var(--brand);font-size:18px;font-weight:700;line-height:1}
+.cell-add{width:28px;height:28px;border-radius:999px;background:rgba(0,0,0,.08);color:inherit;font-size:16px;font-weight:700;line-height:1}
 .empty-hint{color:var(--muted);font-size:13px}
 
 /* ---------- Bottom action bar ---------- */
@@ -945,16 +954,20 @@ function render(){
   const main=document.getElementById('days');main.innerHTML='';
   DAYS.forEach((dn,di)=>{
     const card=document.createElement('div');card.className='day-card';
-    card.innerHTML='<div class="day-head">יום '+dn+'<small>'+fmt(dOf(di))+'</small></div>';
+    var _filled=0;SHIFTS.forEach(function(_s){if(displayCell(di,_s.id).length)_filled++;});
+    var _cc=_filled>=SHIFTS.length?'full':(_filled>0?'part':'');
+    var _ct=_filled>=SHIFTS.length?'מאויש':(_filled>0?_filled+'/'+SHIFTS.length:'ריק');
+    card.innerHTML='<div class="day-head"><span class="dh-l">יום '+dn+'<small>'+fmt(dOf(di))+'</small></span><span class="cov '+_cc+'">'+_ct+'</span></div>';
     SHIFTS.forEach(sh=>{
-      const row=document.createElement('div');row.className='shift-row';
+      const row=document.createElement('div');row.className='shift-row r-'+sh.cls;
       const lab=document.createElement('div');lab.className='shift-label sl-'+sh.cls;lab.innerHTML='<span>'+sh.ico+'</span>'+sh.name;
       const body=document.createElement('div');body.className='shift-body';
       displayCell(di,sh.id).forEach(a=>{
         const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
         const chip=document.createElement('button');
         chip.className='emp-chip'+(a.derived?' derived':'')+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
-        chip.innerHTML=(a.derived?'☀️ ':(isFixed(emp.id,di,sh.id)?'📌 ':''))+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
+        var _ini=(emp.name||'').trim().charAt(0)||'?';
+        chip.innerHTML='<span class="av'+(a.role==='store'?' store':'')+'">'+_ini+'</span>'+(a.derived?'☀️ ':(isFixed(emp.id,di,sh.id)?'📌 ':''))+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
         chip.onclick=()=>openCell(di,sh.id);
         body.appendChild(chip);
       });
