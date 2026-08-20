@@ -152,12 +152,13 @@ main{padding:12px}
 .assign-row.on .role-toggle{display:block}
 
 /* employees screen */
-.emp-item{background:var(--card);border-radius:var(--radius);padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(20,30,45,.06)}
-.emp-avatar{width:42px;height:42px;border-radius:999px;background:var(--brand-soft);color:var(--brand);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:0 0 auto}
+.emp-item{background:var(--card);border-radius:22px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(46,43,37,.12)}
+.emp-avatar{width:42px;height:42px;border-radius:999px;background:var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:0 0 auto}
+.emp-avatar.store{background:#aebf92;color:#56633f}
 .emp-info{flex:1;min-width:0}
 .emp-info b{font-size:15px;display:block}
 .emp-info small{color:var(--muted);font-size:12.5px}
-.emp-btn{flex:0 0 auto;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:12.5px;font-weight:700;color:var(--brand)}
+.emp-btn{flex:0 0 auto;padding:8px 10px;border-radius:999px;background:var(--bg);font-size:12.5px;font-weight:700;color:var(--brand)}
 .field{margin-bottom:12px}
 .field label{display:block;font-size:13px;font-weight:700;margin-bottom:5px;color:var(--muted)}
 .field input,.field select{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;background:var(--card)}
@@ -242,7 +243,7 @@ main{padding:12px}
 .dlg input{width:100%;padding:12px;border:1.5px solid var(--line);border-radius:10px;margin-bottom:14px}
 .dlg-btns{display:flex;gap:8px}
 .dlg-btns .btn{flex:1;margin:0}
-.srch{width:100%;padding:10px 12px;border:1.5px solid var(--line);border-radius:10px;margin-top:10px;font-size:15px;background:var(--bg)}
+.srch{width:100%;padding:12px 16px;border:1px solid var(--line);border-radius:999px;margin-top:10px;font-size:15px;background:var(--bg)}
 
 /* ---------- Auth ---------- */
 #authScreen{position:fixed;inset:0;z-index:1000;background:linear-gradient(160deg,#1B4965,#122f42);display:flex;align-items:center;justify-content:center;padding:22px;overflow:auto}
@@ -402,7 +403,7 @@ main{padding:12px}
 <!-- Employees -->
 <div class="sheet" id="empSheet">
   <div class="sheet-head"><h2>עובדים · <span id="empLocName"></span></h2><p>ניתן להדביק איש קשר ששותף מוואטסאפ בשדה השם</p>
-    <input class="srch" id="empSearch" placeholder="🔍 חיפוש עובד"></div>
+    <input class="srch" id="empSearch" placeholder="🔍 חיפוש עובד או מספר"></div>
   <div class="sheet-body" id="empBody"></div>
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
@@ -1073,7 +1074,7 @@ function renderEmpList(){
   if(!list.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">לא נמצא עובד בשם "'+q+'"</p>';return;}
   list.forEach(emp=>{
     const it=document.createElement('div');it.className='emp-item';
-    it.innerHTML='<div class="emp-avatar">'+emp.name.slice(0,1)+'</div>'+
+    it.innerHTML='<div class="emp-avatar'+(emp.role==='store'?' store':'')+'">'+emp.name.slice(0,1)+'</div>'+
       '<div class="emp-info"><b>'+emp.name+'</b><small>'+(emp.phone||'ללא טלפון')+' · '+(emp.role==='store'?'חנות':'קופה')+'</small></div>'+
       '<button class="emp-btn ea">📅 שיבוץ</button><button class="emp-btn av">🗓 זמינות</button><button class="emp-btn ed">✏️</button>';
     it.querySelector('.ea').onclick=()=>openEmpAssign(emp.id);
@@ -1128,7 +1129,7 @@ function renderWaList(){
   list.forEach(emp=>{
     const ph=waPhone(emp.phone);
     const it=document.createElement('div');it.className='emp-item';
-    it.innerHTML='<div class="emp-avatar">'+emp.name.slice(0,1)+'</div>'+
+    it.innerHTML='<div class="emp-avatar'+(emp.role==='store'?' store':'')+'">'+emp.name.slice(0,1)+'</div>'+
       '<div class="emp-info"><b>'+emp.name+'</b><small>'+(emp.phone||'ללא טלפון')+' · '+(emp.role==='store'?'חנות':'קופה')+'</small></div>';
     let btn;
     if(ph){
