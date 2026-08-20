@@ -156,6 +156,15 @@ main{padding:12px}
 .emp-avatar{width:42px;height:42px;border-radius:999px;background:var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:0 0 auto}
 .emp-avatar.store{background:#aebf92;color:#56633f}
 .emp-info{flex:1;min-width:0}
+.sub-row{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
+.sub-row .si{flex:1;min-width:0}
+.sub-row .si b{display:block;font-size:15px}
+.sub-row .si small{color:var(--muted);font-size:12.5px}
+.sub-act{flex:0 0 auto;padding:8px 12px;border-radius:999px;font-size:12.5px;font-weight:700;background:var(--brand);color:var(--onacc)}
+.sub-act.ghost{background:var(--bg);color:var(--brand)}
+.noreply{display:flex;align-items:center;gap:8px;padding:9px 12px;border-radius:999px;background:var(--bg);margin-bottom:6px;font-size:13.5px;font-weight:700}
+.noreply .nn{flex:1;min-width:0}
+.sec-t{font:700 12.5px/1 Assistant,sans-serif;color:var(--muted);margin:14px 2px 8px}
 .emp-info b{font-size:15px;display:block}
 .emp-info small{color:var(--muted);font-size:12.5px}
 .emp-btn{flex:0 0 auto;padding:8px 10px;border-radius:999px;background:var(--bg);font-size:12.5px;font-weight:700;color:var(--brand)}
@@ -382,9 +391,10 @@ main{padding:12px}
 
 <!-- Availability tab -->
 <div class="sheet" id="availTabSheet">
-  <div class="sheet-head"><h2>✋ זמינות</h2><p>איסוף זמינות מהעובדים</p></div>
+  <div class="sheet-head"><h2>✋ זמינות</h2><p id="availInboxSub">הגשות זמינות לשבוע הנוכחי</p></div>
   <div class="sheet-body">
-    <button class="btn btn-ghost" id="btnWaAvail" style="width:100%;margin-bottom:8px">📲 בקשת זמינות בוואטסאפ</button>
+    <div id="availInbox"></div>
+    <button class="btn btn-ghost" id="btnWaAvail" style="width:100%;margin:12px 0 8px">📲 בקשת זמינות בוואטסאפ</button>
     <button class="btn btn-ghost" id="btnAvailLink" style="width:100%">🔗 קישור זמינות (מילוי עצמי)</button>
   </div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סגירה</button></div>
@@ -613,6 +623,83 @@ async function load(){
   if(!raw)mergePreset();
 }
 let saveT,localOK=null,remoteOK=null,rtChan=null;
+/* ---------- Availability inbox ---------- */
+var _subs=[];
+function subCount(d){var n=0;for(var k in (d||{})){if(d[k]==='yes')n++;}return n;}
+function subEmp(sub){
+  var emps=(loc()||{}).employees||[];
+  var byId=sub.emp_id?emps.find(function(e){return e.id===sub.emp_id;}):null;
+  if(byId)return byId;
+  var nm=(sub.emp_name||'').trim();
+  return emps.find(function(e){return (e.name||'').trim()===nm;})||null;
+}
+async function loadSubs(){
+  var box=document.getElementById('availInbox');if(!box)return;
+  box.innerHTML='<p style="color:var(--muted);padding:10px 2px">טוען…</p>';
+  try{
+    var r=await sb.from('avail_submissions').select('id,emp_id,emp_name,week_key,data,created_at')
+        .eq('store_id',S.cur).eq('week_key',wkKey()).order('created_at',{ascending:false});
+    if(r.error)throw r.error;
+    _subs=r.data||[];
+  }catch(e){box.innerHTML='<p style="color:var(--no);padding:10px 2px">שגיאה בטעינת ההגשות</p>';return;}
+  renderSubs();
+}
+function renderSubs(){
+  var box=document.getElementById('availInbox');if(!box)return;
+  var h='<div class="sec-t">הגשות ('+_subs.length+')</div>';
+  if(!_subs.length)h+='<p style="color:var(--muted);padding:4px 2px 8px;font-size:13.5px">טרם התקבלו הגשות לשבוע זה.</p>';
+  _subs.forEach(function(sub,ix){
+    var n=subCount(sub.data),m=subEmp(sub);
+    h+='<div class="sub-row"><div class="si"><b>'+esc(sub.emp_name||'ללא שם')+'</b>'+
+       '<small>'+n+' משמרות'+(m?'':' · לא מזוהה ברשימת העובדים')+'</small></div>'+
+       (m?'<button class="sub-act" data-apply="'+ix+'">החלה</button>':'')+
+       '<button class="sub-act ghost" data-view="'+ix+'">צפייה</button></div>';
+  });
+  var answered={};
+  _subs.forEach(function(s2){var m=subEmp(s2);if(m)answered[m.id]=1;});
+  var pending=((loc()||{}).employees||[]).filter(function(e){return !answered[e.id];});
+  h+='<div class="sec-t">טרם ענו ('+pending.length+')</div>';
+  pending.forEach(function(e){
+    var ph=waPhone(e.phone);
+    h+='<div class="noreply"><span class="nn">'+esc(e.name)+'</span>'+
+       (ph?'<a class="sub-act ghost" target="_blank" rel="noopener" href="https://wa.me/'+ph+'?text='+encodeURIComponent('נא לשלוח זמינות למשמרות')+'">שליחה</a>'
+          :'<span class="sub-act ghost" style="opacity:.55">אין מספר</span>')+'</div>';
+  });
+  box.innerHTML=h;
+  box.querySelectorAll('[data-apply]').forEach(function(b){
+    b.onclick=function(){applySub(_subs[+b.getAttribute('data-apply')]);};
+  });
+  box.querySelectorAll('[data-view]').forEach(function(b){
+    b.onclick=function(){viewSub(_subs[+b.getAttribute('data-view')]);};
+  });
+}
+function subCells(sub){
+  var out=[];
+  for(var k in (sub.data||{})){
+    if(sub.data[k]!=='yes')continue;
+    var p=k.split('-');var di=parseInt(p[0],10);var sh=p[1];
+    if(isNaN(di)||!sh)continue;
+    out.push({di:di,sh:sh,k:k});
+  }
+  return out;
+}
+function applySub(sub){
+  var m=subEmp(sub);
+  if(!m){toast('העובד לא נמצא ברשימה');return;}
+  var cells=subCells(sub);
+  if(!cells.length){toast('ההגשה ריקה');return;}
+  cells.forEach(function(c){setAv(m.id,c.di,c.sh,'yes');});
+  toast('הזמינות של '+m.name+' הוחלה ✓');
+  render();
+}
+function viewSub(sub){
+  var cells=subCells(sub);
+  var names=cells.map(function(c){
+    var sh=SHIFTS.find(function(x){return x.id===c.sh;});
+    return DAYS[c.di]+' '+(sh?sh.name:c.sh);
+  });
+  toast(names.length?names.join(' · '):'ההגשה ריקה');
+}
 /* ---------- Theme palettes ---------- */
 var THEMES=[
  {id:'terracotta',name:'\u05d8\u05e8\u05e7\u05d5\u05d8\u05d4',note:'\u05d1\u05e8\u05d9\u05e8\u05ea \u05d4\u05de\u05d7\u05d3\u05dc \u00b7 \u05d7\u05de\u05d4',sw:['#c67139','#ffe1d0','#e1eecc']},
@@ -1450,7 +1537,7 @@ function setTab(id){
 }
 document.getElementById('tabSched').onclick=function(){closeSheets();setTab('tabSched');};
 document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document.getElementById('btnEmps').click();};
-document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');};
+document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');document.getElementById('availInboxSub').textContent='שבוע '+wkKey();loadSubs();};
 document.getElementById('tabMore').onclick=function(){setTab('tabMore');openSheet('moreSheet');};
 document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet('themeSheet');};
 document.getElementById('btnManage').onclick=function(){openManage();};
