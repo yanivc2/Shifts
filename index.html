@@ -323,6 +323,7 @@ main{padding:12px}
       <button class="sub-act ghost" id="meVac" style="flex:1;min-width:46%">🏖️ בקשת חופשה</button>
       <button class="sub-act ghost" id="meAdv" style="flex:1;min-width:46%">💸 בקשת מפרעה</button>
     </div>
+    <div id="meIncoming" style="margin-top:10px"></div>
     <div id="meReqs" style="margin-top:10px"></div>
     <div class="sec-t">הזמינות שלי לשבוע הבא</div>
     <div id="meAvail"></div>
@@ -482,6 +483,13 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnImportCloud" style="width:100%;margin-bottom:8px">☁️ ייבוא נתוני המכשיר לענן</button>
   </div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סגירה</button></div>
+</div>
+
+<!-- Swap picker -->
+<div class="sheet" id="swapSheet">
+  <div class="sheet-head"><h2>🔁 החלפת משמרת</h2><p>בחר/י עם מי להחליף</p></div>
+  <div class="sheet-body" id="swapBody"></div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">ביטול</button></div>
 </div>
 
 <!-- Published schedule -->
@@ -736,8 +744,7 @@ async function initMe(tok){
       sendReq('cancel',{p_cell:k},b,'ביטול משמרת — '+cellLabel(k));};
   });
   mw.querySelectorAll('[data-swap]').forEach(function(b){
-    b.onclick=function(){var k=b.getAttribute('data-swap');
-      sendReq('swap',{p_cell:k},b,'החלפה עם עובד אחר — '+cellLabel(k));};
+    b.onclick=function(){askSwap(b.getAttribute('data-swap'),b);};
   });
   document.getElementById('meVac').onclick=async function(){
     var f=await askText('בקשת חופשה — מתאריך','','YYYY-MM-DD');if(!f)return;
@@ -750,7 +757,7 @@ async function initMe(tok){
     if(!n||n<=0){toast('סכום לא תקין');return;}
     sendReq('advance',{p_amount:n},null,'בקשת מפרעה '+n+' ₪');
   };
-  loadMyReqs();
+  loadMyReqs();loadIncomingSwaps();
   renderMeAvail();
 }
 function renderMeAvail(){
@@ -774,14 +781,14 @@ function renderMeAvail(){
 /* ---------- Publish + lock ---------- */
 var _pub={};                 /* week_key -> latest published snapshot */
 var _override={};            /* week_key -> emergency edit allowed    */
-function weekStarted(){var st=new Date(weekStart);st.setHours(0,0,0,0);return new Date()>=st;}
-function weekSched(){return ((S.sched[S.cur]||{})[wkKey()])||{};}
-function isLocked(){
-  var w=wkKey();
-  if(_override[S.cur+'|'+w])return false;
-  if(!_pub[S.cur+'|'+w])return false;      /* never published -> never locked */
-  return weekStarted();                     /* locked once the week has begun */
+function weekEnded(){var e=new Date(weekStart);e.setDate(e.getDate()+7);e.setHours(0,0,0,0);return new Date()>=e;}
+function lockedView(){
+  if(_override[S.cur+'|'+wkKey()])return null;
+  if(!weekEnded())return null;
+  return _pub[S.cur+'|'+wkKey()]||null;
 }
+function weekSched(){return ((S.sched[S.cur]||{})[wkKey()])||{};}
+function isLocked(){return !!lockedView();}
 async function loadPublished(){
   var k=S.cur+'|'+wkKey();
   try{
@@ -799,9 +806,9 @@ function paintLock(){
   bar.style.display='flex';
   bar.className='lockbar'+(locked?' on':'');
   var when=new Date(p.published_at);
-  var drift=schedDiffers();
+  var drift=!locked&&schedDiffers();
   document.getElementById('lockTxt').textContent=
-    (drift?'⚠️ שונה אחרי הפרסום · ':(locked?'🔒 נעול · ':'📤 פורסם · '))+'גרסה '+p.version+' · '+
+    (locked?'🔒 נעול על מה שנשלח · ':(drift?'⚠️ שונה אחרי הפרסום · ':'📤 פורסם · '))+'גרסה '+p.version+' · '+
     when.toLocaleDateString('he-IL')+' '+when.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
   if(drift)bar.className='lockbar on';
   document.getElementById('lockOpen').style.display=locked?'inline-block':'none';
@@ -868,7 +875,7 @@ async function loadCovers(){
 function reqLine(c){
   if(c.kind==='vacation')return 'חופשה · '+(c.date_from||'')+' → '+(c.date_to||'');
   if(c.kind==='advance')return 'מפרעה · '+(c.amount||0)+' ₪';
-  if(c.kind==='swap')return 'החלפה עם עובד · '+(c.cell?cellLabel(c.cell):'');
+  if(c.kind==='swap')return 'החלפה'+(c.target_emp_name?' עם '+c.target_emp_name:'')+' · '+(c.cell?cellLabel(c.cell):'')+(c.target_ok?' ✓':' (ממתין לאישורו)');
   if(c.kind==='cancel')return 'ביטול משמרת · '+(c.cell?cellLabel(c.cell):'');
   return 'החלפה · '+(c.cell?cellLabel(c.cell):'');
 }
@@ -881,7 +888,7 @@ function renderCovers(){
     h+='<div class="sub-row" style="border-color:var(--morning)"><div class="si">'+
        '<b>'+esc(c.emp_name||'עובד')+' · '+esc(reqLine(c))+'</b>'+
        '<small>'+esc(wk)+(c.note?' · '+esc(c.note):'')+'</small></div>'+
-       '<button class="sub-act" data-cvok="'+ix+'">אישור</button>'+
+       ((c.kind==='swap'&&!c.target_ok)?'':'<button class="sub-act" data-cvok="'+ix+'">אישור</button>')+
        '<button class="sub-act ghost" data-cvno="'+ix+'">דחייה</button></div>';
   });
   box.innerHTML=h;
@@ -913,10 +920,81 @@ function applyApproved(c){
   if((c.kind==='cancel'||c.kind==='cover'||c.kind==='swap')&&c.week_key&&c.cell){
     if(c.week_key!==wkKey()){toast('אושר — עבור לשבוע '+c.week_key+' כדי לראות את השינוי');return;}
     var p=String(c.cell).split('-'),di=parseInt(p[0],10),sh=p[1];
+    var was=getCell(di,sh).find(function(a){return a.empId===c.emp_id;})||{};
     var arr=getCell(di,sh).filter(function(a){return a.empId!==c.emp_id;});
+    if(c.kind==='swap'&&c.target_emp_id&&!arr.find(function(a){return a.empId===c.target_emp_id;})){
+      arr=arr.concat([{empId:c.target_emp_id,role:was.role||'cash',hrs:was.hrs||''}]);
+    }
     setCell(di,sh,arr);
     render();paintLock();
+    if(c.kind==='swap'){
+      var m='ההחלפה אושרה ✓\n'+cellLabel(c.cell)+'\n'+(c.emp_name||'')+' ← '+(c.target_emp_name||'');
+      if(navigator.share){navigator.share({title:'ההחלפה אושרה',text:m}).catch(function(){});}
+      else if(navigator.clipboard){navigator.clipboard.writeText(m);toast('הודעת האישור הועתקה');}
+    }
   }
+}
+/* ---------- Employee: swap with a named colleague ---------- */
+var _coworkers=[];
+async function askSwap(cell,btn){
+  if(!_coworkers.length){
+    try{var r=await sb.rpc('emp_coworkers',{p_token:_meTok});if(r.error)throw r.error;_coworkers=r.data||[];}
+    catch(e){toast('טעינת רשימת העובדים נכשלה');return;}
+  }
+  if(!_coworkers.length){toast('אין עובדים אחרים בסניף');return;}
+  var box=document.getElementById('swapBody');
+  box.innerHTML='<div class="sec-t">'+esc(cellLabel(cell))+' — עם מי להחליף?</div>'+
+    _coworkers.map(function(c,i){
+      return '<button class="sub-row" style="width:100%;text-align:right" data-sw="'+i+'">'+
+             '<div class="si"><b>'+esc(c.name)+'</b></div></button>';
+    }).join('');
+  box.querySelectorAll('[data-sw]').forEach(function(b2){
+    b2.onclick=async function(){
+      var c=_coworkers[+b2.getAttribute('data-sw')];
+      var note=await askText('בקשת החלפה עם '+c.name,'','סיבה (לא חובה)');
+      if(note===null)return;
+      try{
+        var rr=await sb.rpc('emp_submit_request',{p_token:_meTok,p_kind:'swap',p_week:_meWeek,
+          p_cell:cell,p_target_emp:c.id,p_from:null,p_to:null,p_amount:null,p_note:note||''});
+        if(rr.error)throw rr.error;
+        closeSheets();
+        if(btn){btn.textContent='נשלח ✓';btn.disabled=true;}
+        toast('הבקשה נשלחה — שתף אותה עם '+c.name);
+        var msg='היי '+c.name+', אפשר להחליף איתי משמרת ב'+cellLabel(cell)+'?\n'+
+                'אשר/י כאן: '+REDIRECT+'\n(ההחלפה תיכנס לתוקף רק אחרי אישור המנהל)';
+        if(navigator.share){navigator.share({title:'בקשת החלפת משמרת',text:msg}).catch(function(){});}
+        else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('ההודעה הועתקה');}
+        loadMyReqs();
+      }catch(e){toast('שליחת הבקשה נכשלה');}
+    };
+  });
+  openSheet('swapSheet');
+}
+async function loadIncomingSwaps(){
+  var box=document.getElementById('meIncoming');if(!box)return;
+  try{
+    var r=await sb.rpc('emp_incoming_swaps',{p_token:_meTok});if(r.error)throw r.error;
+    var list=r.data||[];
+    if(!list.length){box.innerHTML='';return;}
+    var h='<div class="sec-t">בקשות החלפה שנשלחו אליך</div>';
+    list.forEach(function(q,i){
+      h+='<div class="sub-row"><div class="si"><b>'+esc(q.from||'עובד')+' · '+esc(cellLabel(q.cell))+'</b>'+
+         '<small>'+(q.target_ok?'אישרת — ממתין לאישור המנהל':'ממתין לאישורך')+
+         (q.note?' · '+esc(q.note):'')+'</small></div>'+
+         (q.target_ok?'':'<button class="sub-act" data-acc="'+i+'">אישור</button>')+'</div>';
+    });
+    box.innerHTML=h;
+    box.querySelectorAll('[data-acc]').forEach(function(b){
+      b.onclick=async function(){
+        var q=list[+b.getAttribute('data-acc')];
+        try{var rr=await sb.rpc('emp_accept_swap',{p_token:_meTok,p_request:q.id});
+          if(rr.error)throw rr.error;
+          toast('אישרת — ההחלפה תיכנס לתוקף רק לאחר אישור המנהל');
+          loadIncomingSwaps();}
+        catch(e){toast('האישור נכשל');}
+      };
+    });
+  }catch(e){box.innerHTML='';}
 }
 /* ---------- Employee: my own requests ---------- */
 var REQ_HE={cover:'החלפה',cancel:'ביטול משמרת',swap:'החלפה עם עובד',vacation:'חופשה',advance:'מפרעה'};
@@ -1287,6 +1365,8 @@ function fmt(d){return d.getDate()+'.'+(d.getMonth()+1);}
 function loc(){return S.locations.find(l=>l.id===S.cur);}
 function cellKey(di,sh){return di+'-'+sh;}
 function getCell(di,sh){
+  var _lv=(typeof lockedView==='function')?lockedView():null;
+  if(_lv)return ((_lv.data||{})[cellKey(di,sh)]||[]).map(a=>({...a}));
   const w=(S.sched[S.cur]||{})[wkKey()];
   if(w&&w[cellKey(di,sh)]!==undefined)return w[cellKey(di,sh)];
   return getFix(di,sh).map(a=>({...a}));
