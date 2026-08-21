@@ -442,7 +442,8 @@ main{padding:12px}
   <div class="sheet-body">
     <div id="coverInbox"></div>
     <div id="availInbox"></div>
-    <button class="btn btn-ghost" id="btnWaAvail" style="width:100%;margin:12px 0 8px">📲 בקשת זמינות בוואטסאפ</button>
+    <button class="btn btn-ghost" id="btnAdvSum" style="width:100%;margin:12px 0 8px">💸 סיכום מפרעות החודש</button>
+    <button class="btn btn-ghost" id="btnWaAvail" style="width:100%;margin-bottom:8px">📲 בקשת זמינות בוואטסאפ</button>
     <button class="btn btn-ghost" id="btnAvailLink" style="width:100%">🔗 קישור זמינות (מילוי עצמי)</button>
   </div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סגירה</button></div>
@@ -547,6 +548,10 @@ main{padding:12px}
       <button class="btn btn-ghost" id="btnPhoneFromContacts" style="margin-top:6px">📇 מספר מאנשי הקשר</button></div>
     <div class="field"><label>תפקיד ברירת מחדל</label>
       <select id="fRole"><option value="cash">קופה</option><option value="store">חנות</option></select></div>
+    <div class="field"><label>סיכום זמינות עם העובד</label>
+      <div style="font-size:12.5px;color:var(--muted);margin-bottom:6px">סמן/י ימים שסוכם שהוא <b>לא</b> עובד בהם. שיבוץ ליום כזה יבקש אישור.</div>
+      <div id="fOff" style="display:flex;gap:5px;flex-wrap:wrap"></div>
+      <input id="fCommit" placeholder="מה סוכם — שעות, הערות" style="margin-top:8px"></div>
   </div>
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnSaveEmp">שמירה</button>
@@ -933,6 +938,67 @@ function applyApproved(c){
       else if(navigator.clipboard){navigator.clipboard.writeText(m);toast('הודעת האישור הועתקה');}
     }
   }
+}
+/* ---------- Monthly advances summary ---------- */
+async function advanceSummary(){
+  var now=new Date(),first=new Date(now.getFullYear(),now.getMonth(),1);
+  try{
+    var r=await sb.from('emp_requests')
+      .select('emp_name,amount,note,decided_at,created_at')
+      .eq('store_id',S.cur).eq('kind','advance').eq('status','approved')
+      .gte('created_at',first.toISOString()).order('created_at',{ascending:true});
+    if(r.error)throw r.error;
+    var list=r.data||[];
+    if(!list.length){toast('אין מפרעות מאושרות החודש');return;}
+    var total=0,lines=list.map(function(a){
+      total+=Number(a.amount||0);
+      var d=new Date(a.decided_at||a.created_at);
+      return '\u2022 '+(a.emp_name||'')+' — '+Number(a.amount||0).toLocaleString('he-IL')+' \u20aa ('+
+             d.toLocaleDateString('he-IL')+')'+(a.note?' — '+a.note:'');
+    });
+    var msg='מפרעות/הלוואות שאושרו — '+((loc()||{}).name||'')+'\n'+
+            now.toLocaleDateString('he-IL',{month:'long',year:'numeric'})+'\n\n'+
+            lines.join('\n')+'\n\nסה"כ: '+total.toLocaleString('he-IL')+' \u20aa';
+    if(navigator.share){navigator.share({title:'סיכום מפרעות',text:msg}).catch(function(){});}
+    else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('הסיכום הועתק');}
+    else{toast('סה"כ '+total+' \u20aa');}
+  }catch(e){toast('טעינת הסיכום נכשלה');}
+}
+/* ---------- Agreed availability (what was settled when hired) ---------- */
+var _offDraft={};
+function renderOffDays(){
+  var box=document.getElementById('fOff');if(!box)return;
+  box.innerHTML=DAYS.map(function(dn,di){
+    return '<button type="button" class="sub-act'+(_offDraft[di]?'':' ghost')+'" data-off="'+di+'" style="flex:1;min-width:60px;padding:8px 4px">'+dn+'</button>';
+  }).join('');
+  box.querySelectorAll('[data-off]').forEach(function(b){
+    b.onclick=function(){var d=+b.getAttribute('data-off');
+      if(_offDraft[d])delete _offDraft[d];else _offDraft[d]=1;renderOffDays();};
+  });
+}
+function empOffDays(empId){
+  var e=((loc()||{}).employees||[]).find(function(x){return x.id===empId;});
+  return (e&&e.offDays)||{};
+}
+function onVacation(empId,di){
+  var e=((loc()||{}).employees||[]).find(function(x){return x.id===empId;});
+  if(!e||!e.vac||!e.vac.length)return null;
+  var d=dOf(di);d.setHours(12,0,0,0);
+  for(var i=0;i<e.vac.length;i++){
+    var f=new Date(e.vac[i].from),t=new Date(e.vac[i].to);t.setHours(23,59,59,999);
+    if(d>=f&&d<=t)return e.vac[i];
+  }
+  return null;
+}
+async function confirmAssign(empId,di){
+  var e=((loc()||{}).employees||[]).find(function(x){return x.id===empId;})||{};
+  var vac=onVacation(empId,di);
+  if(vac)return await askConfirm(e.name+' מאושר בחופשה ב'+DAYS[di]+' ('+vac.from+' \u2192 '+vac.to+').\nלשבץ בכל זאת?');
+  if(empOffDays(empId)[di]){
+    var note=(e.commit||'');
+    return await askConfirm('סוכם עם '+e.name+' שאינו עובד בימי '+DAYS[di]+'.'+(note?'\n('+note+')':'')+'\nלשבץ בכל זאת?');
+  }
+  return true;
 }
 /* ---------- Employee: swap with a named colleague ---------- */
 var _coworkers=[];
@@ -1530,6 +1596,7 @@ function renderCellList(){
       let arr=getCell(di,sh);
       if(arr.find(c=>c.empId===emp.id)){arr=arr.filter(c=>c.empId!==emp.id);}
       else{
+        if(!(await confirmAssign(emp.id,di)))return;
         if(av==='no'&&!(await askConfirm(emp.name+' סימן שאינו זמין במשמרת זו. לשבץ בכל זאת?')))return;
         arr=[...arr,{empId:emp.id,role:emp.role||'cash'}];
       }
@@ -1721,7 +1788,7 @@ function openEmpAssign(empId){
     html+='</tr>';
   });
   g.innerHTML=html;
-  g.querySelectorAll('.av-cell').forEach(b=>b.onclick=()=>{
+  g.querySelectorAll('.av-cell').forEach(b=>b.onclick=async()=>{
     const di=+b.dataset.d,sh=b.dataset.s;
     let arr=getCell(di,sh);
     const asn=!!arr.find(c=>c.empId===empId);
@@ -1737,6 +1804,7 @@ function openEmpAssign(empId){
       const a=arr.find(c=>c.empId===empId);
       setFix(di,sh,[...getFix(di,sh),{empId,role:a.role,hrs:a.hrs||''}]);
     }else{ /* לא משובץ -> השבוע */
+      if(!(await confirmAssign(empId,di)))return;
       setCell(di,sh,[...arr,{empId,role:emp.role||'cash'}]);
     }
     openEmpAssign(empId);
@@ -1911,6 +1979,9 @@ function openEmpForm(id){
   document.getElementById('fPhone').value=emp?emp.phone:'';
   document.getElementById('fRole').value=emp?emp.role:'cash';
   document.getElementById('btnDelEmp').style.display=emp?'block':'none';
+  _offDraft=(emp&&emp.offDays)?JSON.parse(JSON.stringify(emp.offDays)):{};
+  document.getElementById('fCommit').value=(emp&&emp.commit)||'';
+  renderOffDays();
   openSheet('empFormSheet');
 }
 document.getElementById('btnSaveEmp').onclick=()=>{
@@ -1918,8 +1989,10 @@ document.getElementById('btnSaveEmp').onclick=()=>{
   if(!name){toast('יש להזין שם');return;}
   const phone=document.getElementById('fPhone').value.trim();
   const role=document.getElementById('fRole').value;
-  if(editEmpId){const e=loc().employees.find(x=>x.id===editEmpId);e.name=name;e.phone=phone;e.role=role;}
-  else loc().employees.push({id:'E'+Date.now(),name,phone,role});
+  const offDays=JSON.parse(JSON.stringify(_offDraft));
+  const commit=(document.getElementById('fCommit').value||'').trim();
+  if(editEmpId){const e=loc().employees.find(x=>x.id===editEmpId);e.name=name;e.phone=phone;e.role=role;e.offDays=offDays;e.commit=commit;}
+  else loc().employees.push({id:'E'+Date.now(),name,phone,role,offDays:offDays,commit:commit});
   save({t:'emps'});openEmployees();
 };
 document.getElementById('btnDelEmp').onclick=async()=>{
@@ -1991,6 +2064,7 @@ function setTab(id){
 }
 document.getElementById('tabSched').onclick=function(){closeSheets();setTab('tabSched');};
 document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document.getElementById('btnEmps').click();};
+document.getElementById('btnAdvSum').onclick=advanceSummary;
 document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');document.getElementById('availInboxSub').textContent='שבוע '+wkKey();loadCovers();loadSubs();};
 document.getElementById('tabMore').onclick=function(){setTab('tabMore');openSheet('moreSheet');};
 document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet('themeSheet');};
