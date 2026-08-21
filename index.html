@@ -156,6 +156,8 @@ main{padding:12px}
 .emp-avatar{width:42px;height:42px;border-radius:999px;background:var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:0 0 auto}
 .emp-avatar.store{background:#aebf92;color:#56633f}
 .av-cell.off{background:var(--morning-bg);color:var(--morning);border:1.5px solid var(--morning)}
+.lockbar{display:flex;align-items:center;gap:8px;margin:8px 14px 0;padding:9px 12px;border-radius:999px;background:var(--ok-bg);color:var(--ink);font-size:12.5px;font-weight:700}
+.lockbar.on{background:var(--morning-bg);color:var(--morning)}
 .emp-info{flex:1;min-width:0}
 .sub-row{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
 .sub-row .si{flex:1;min-width:0}
@@ -397,6 +399,12 @@ main{padding:12px}
   <button class="wk-btn" id="wkNext">›</button>
 </div>
 
+<div class="lockbar" id="lockBar" style="display:none">
+  <span id="lockTxt" style="flex:1;min-width:0"></span>
+  <button class="sub-act ghost" onclick="openPublished()">מה נשלח</button>
+  <button class="sub-act" id="lockOpen" onclick="emergencyEdit()">עריכת חירום</button>
+</div>
+
 <main id="days"></main>
 
 <button id="btnEmps" style="display:none" aria-hidden="true"></button>
@@ -467,6 +475,13 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnRestore" style="width:100%;margin-bottom:8px">♻️ שחזור מגיבוי</button>
     <button class="btn btn-ghost" id="btnImportCloud" style="width:100%;margin-bottom:8px">☁️ ייבוא נתוני המכשיר לענן</button>
   </div>
+  <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סגירה</button></div>
+</div>
+
+<!-- Published schedule -->
+<div class="sheet" id="pubSheet">
+  <div class="sheet-head"><h2>📄 הלוז שפורסם</h2><p id="pubHead"></p></div>
+  <div class="sheet-body"><div id="pubDiff" style="color:var(--morning);font-weight:700;font-size:13px;margin-bottom:8px"></div><div id="pubBody"></div></div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סגירה</button></div>
 </div>
 
@@ -727,6 +742,84 @@ function renderMeAvail(){
     b.onclick=function(){var k=b.getAttribute('data-av');
       if(_meAvail[k]==='yes')delete _meAvail[k];else _meAvail[k]='yes';renderMeAvail();};
   });
+}
+/* ---------- Publish + lock ---------- */
+var _pub={};                 /* week_key -> latest published snapshot */
+var _override={};            /* week_key -> emergency edit allowed    */
+function weekStarted(){var st=new Date(weekStart);st.setHours(0,0,0,0);return new Date()>=st;}
+function weekSched(){return ((S.sched[S.cur]||{})[wkKey()])||{};}
+function isLocked(){
+  var w=wkKey();
+  if(_override[S.cur+'|'+w])return false;
+  if(!_pub[S.cur+'|'+w])return false;      /* never published -> never locked */
+  return weekStarted();                     /* locked once the week has begun */
+}
+async function loadPublished(){
+  var k=S.cur+'|'+wkKey();
+  try{
+    var r=await sb.rpc('published_schedule',{p_store:S.cur,p_week:wkKey()});
+    if(r.error)throw r.error;
+    _pub[k]=(r.data&&r.data.valid)?r.data:null;
+  }catch(e){_pub[k]=null;}
+  paintLock();
+}
+function paintLock(){
+  var bar=document.getElementById('lockBar');if(!bar)return;
+  var k=S.cur+'|'+wkKey(),p=_pub[k];
+  if(!p){bar.style.display='none';return;}
+  var locked=isLocked();
+  bar.style.display='flex';
+  bar.className='lockbar'+(locked?' on':'');
+  var when=new Date(p.published_at);
+  document.getElementById('lockTxt').textContent=
+    (locked?'🔒 נעול · ':'📤 פורסם · ')+'גרסה '+p.version+' · '+
+    when.toLocaleDateString('he-IL')+' '+when.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  document.getElementById('lockOpen').style.display=locked?'inline-block':'none';
+}
+function schedDiffers(){
+  var k=S.cur+'|'+wkKey(),p=_pub[k];if(!p)return false;
+  return JSON.stringify(p.data||{})!==JSON.stringify(weekSched());
+}
+async function publishWeek(note){
+  try{
+    var r=await sb.rpc('publish_schedule',{p_store:S.cur,p_week:wkKey(),p_data:weekSched(),p_note:note||''});
+    if(r.error)throw r.error;
+    await loadPublished();
+    toast('הלוז פורסם · גרסה '+((r.data&&r.data.version)||'')+' ✓');
+  }catch(e){toast('הפרסום נכשל');}
+}
+function pubCellText(data){
+  var out=[];
+  DAYS.forEach(function(dn,di){
+    SHIFTS.forEach(function(sh){
+      var arr=(data||{})[di+'-'+sh.id];
+      if(!arr||!arr.length)return;
+      var names=arr.map(function(a){
+        var e=(loc().employees||[]).find(function(x){return x.id===a.empId;});
+        return (e?e.name:'?')+(a.hrs?' ('+a.hrs+')':'');
+      }).join(', ');
+      out.push('<div style="padding:7px 0;border-bottom:1px solid var(--line)"><b>'+dn+' · '+sh.name+'</b><br><span style="font-size:13.5px;color:var(--muted)">'+esc(names)+'</span></div>');
+    });
+  });
+  return out.length?out.join(''):'<p style="color:var(--muted)">הגרסה שפורסמה ריקה.</p>';
+}
+async function openPublished(){
+  var k=S.cur+'|'+wkKey(),p=_pub[k];
+  document.getElementById('pubBody').innerHTML=p?pubCellText(p.data):'<p style="color:var(--muted)">לשבוע זה טרם פורסם לוז.</p>';
+  document.getElementById('pubHead').textContent=p?('גרסה '+p.version+' · '+new Date(p.published_at).toLocaleString('he-IL')):'טרם פורסם';
+  var d=document.getElementById('pubDiff');
+  d.textContent=(p&&schedDiffers())?'⚠️ הלוז הנוכחי שונה מהגרסה שפורסמה':'';
+  openSheet('pubSheet');
+}
+async function emergencyEdit(){
+  if(!await askConfirm('הלוז נעול על הגרסה שנשלחה.\nלפתוח לעריכת חירום? השינוי ייצור גרסה חדשה שתצטרך לפרסם.'))return;
+  _override[S.cur+'|'+wkKey()]=true;paintLock();render();
+  toast('נפתח לעריכה — זכור לשתף שוב כדי לפרסם');
+}
+function guardLocked(){
+  if(!isLocked())return false;
+  toast('🔒 הלוז נעול — פתח עריכת חירום');
+  return true;
 }
 /* ---------- Cover requests inbox ---------- */
 var _covers=[];
@@ -1144,7 +1237,7 @@ function displayCell(di,shId){
   getCell(di,'m').forEach(function(a){if(shiftEndsLate(a.hrs)&&!have[a.empId]){have[a.empId]=1;spill.push({empId:a.empId,role:a.role,hrs:a.hrs,derived:true});}});
   return base.concat(sortRole(spill));
 }
-function setCell(di,sh,arr){S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save({t:'sched',di:di,sh:sh});}
+function setCell(di,sh,arr){if(typeof guardLocked==='function'&&guardLocked())return;S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save({t:'sched',di:di,sh:sh});}
 /* משמרות קבועות: תבנית שממלאת כל שבוע חדש אוטומטית */
 function getFix(di,sh){return(((S.fixed||{})[S.cur])||{})[cellKey(di,sh)]||[];}
 function setFix(di,sh,arr){S.fixed=S.fixed||{};S.fixed[S.cur]=S.fixed[S.cur]||{};S.fixed[S.cur][cellKey(di,sh)]=arr;save({t:'fixed',di:di,sh:sh});}
@@ -1177,7 +1270,7 @@ function render(){
   const tabs=document.getElementById('locTabs');tabs.innerHTML='';
   S.locations.forEach(l=>{
     const b=document.createElement('button');b.className='loc-tab'+(l.id===S.cur?' active':'');b.textContent=l.name;
-    b.onclick=()=>{S.cur=l.id;save(false);render();};tabs.appendChild(b);
+    b.onclick=()=>{S.cur=l.id;save(false);render();loadPublished();};tabs.appendChild(b);
   });
   const add=document.createElement('button');add.className='loc-add';add.textContent='+ סניף';
   add.onclick=async()=>{const n=await askText('שם הסניף החדש','','לדוגמה: סניף רחובות');if(!n||!n.trim())return;try{await createBranch(n.trim());render();}catch(e){toast('יצירת הסניף נכשלה');}};
@@ -1909,8 +2002,8 @@ document.getElementById('btnRenameLoc').onclick=async()=>{
 };
 
 /* ================= Week nav ================= */
-document.getElementById('wkPrev').onclick=()=>{weekStart.setDate(weekStart.getDate()-7);render();};
-document.getElementById('wkNext').onclick=()=>{weekStart.setDate(weekStart.getDate()+7);render();};
+document.getElementById('wkPrev').onclick=()=>{weekStart.setDate(weekStart.getDate()-7);render();loadPublished();};
+document.getElementById('wkNext').onclick=()=>{weekStart.setDate(weekStart.getDate()+7);render();loadPublished();};
 document.getElementById('wkCopy').onclick=async()=>{
   const prev=new Date(weekStart);prev.setDate(prev.getDate()-7);
   const pk=prev.toISOString().slice(0,10);
@@ -1966,6 +2059,7 @@ document.getElementById('btnShare').onclick=async()=>{
       const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=file.name;a.click();
       toast('התמונה הורדה – ניתן לשתף אותה בוואטסאפ');
     }
+    await publishWeek('שותף בוואטסאפ');
   }catch(e){if(e.name!=='AbortError')toast('השיתוף נכשל, נסה שוב');}
 };
 
@@ -2032,6 +2126,7 @@ async function bootApp(){
   try{await fixedBackfill();}catch(e){}
   startRealtime();
   render();
+  try{await loadPublished();}catch(e){}
 }
 function aMsg(t,kind){const m=document.getElementById('authMsg');if(!t){m.className='auth-msg';m.textContent='';return;}m.textContent=t;m.className='auth-msg '+(kind||'err');}
 function authMode(m){['login','signup','forgot','reset','join'].forEach(x=>{document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===m);});aMsg('');}
