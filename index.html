@@ -424,6 +424,7 @@ main{padding:12px}
 <div class="sheet" id="availTabSheet">
   <div class="sheet-head"><h2>✋ זמינות</h2><p id="availInboxSub">הגשות זמינות לשבוע הנוכחי</p></div>
   <div class="sheet-body">
+    <div id="coverInbox"></div>
     <div id="availInbox"></div>
     <button class="btn btn-ghost" id="btnWaAvail" style="width:100%;margin:12px 0 8px">📲 בקשת זמינות בוואטסאפ</button>
     <button class="btn btn-ghost" id="btnAvailLink" style="width:100%">🔗 קישור זמינות (מילוי עצמי)</button>
@@ -723,6 +724,47 @@ function renderMeAvail(){
     b.onclick=function(){var k=b.getAttribute('data-av');
       if(_meAvail[k]==='yes')delete _meAvail[k];else _meAvail[k]='yes';renderMeAvail();};
   });
+}
+/* ---------- Cover requests inbox ---------- */
+var _covers=[];
+async function loadCovers(){
+  var box=document.getElementById('coverInbox');if(!box)return;
+  box.innerHTML='';
+  try{
+    var r=await sb.from('cover_requests').select('id,emp_name,week_key,cell,note,status,created_at')
+        .eq('store_id',S.cur).eq('status','open').order('created_at',{ascending:false});
+    if(r.error)throw r.error;
+    _covers=r.data||[];
+  }catch(e){box.innerHTML='<p style="color:var(--no);padding:10px 2px">שגיאה בטעינת בקשות ההחלפה</p>';return;}
+  renderCovers();
+}
+function renderCovers(){
+  var box=document.getElementById('coverInbox');if(!box)return;
+  if(!_covers.length){box.innerHTML='';return;}
+  var h='<div class="sec-t">בקשות החלפה ('+_covers.length+')</div>';
+  _covers.forEach(function(c,ix){
+    var wk=(c.week_key===wkKey())?'השבוע':c.week_key;
+    h+='<div class="sub-row" style="border-color:var(--morning)"><div class="si">'+
+       '<b>'+esc(c.emp_name||'עובד')+' · '+esc(cellLabel(c.cell))+'</b>'+
+       '<small>'+esc(wk)+(c.note?' · '+esc(c.note):'')+'</small></div>'+
+       '<button class="sub-act" data-cvok="'+ix+'">טופל</button>'+
+       '<button class="sub-act ghost" data-cvno="'+ix+'">דחייה</button></div>';
+  });
+  box.innerHTML=h;
+  box.querySelectorAll('[data-cvok]').forEach(function(b){
+    b.onclick=function(){setCover(_covers[+b.getAttribute('data-cvok')],'resolved');};
+  });
+  box.querySelectorAll('[data-cvno]').forEach(function(b){
+    b.onclick=function(){setCover(_covers[+b.getAttribute('data-cvno')],'declined');};
+  });
+}
+async function setCover(c,st){
+  try{
+    var r=await sb.from('cover_requests').update({status:st}).eq('id',c.id);
+    if(r.error)throw r.error;
+    toast(st==='resolved'?'סומן כטופל ✓':'הבקשה נדחתה');
+    loadCovers();
+  }catch(e){toast('העדכון נכשל');}
 }
 /* ---------- Availability inbox ---------- */
 var _subs=[];
@@ -1649,7 +1691,7 @@ function setTab(id){
 }
 document.getElementById('tabSched').onclick=function(){closeSheets();setTab('tabSched');};
 document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document.getElementById('btnEmps').click();};
-document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');document.getElementById('availInboxSub').textContent='שבוע '+wkKey();loadSubs();};
+document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');document.getElementById('availInboxSub').textContent='שבוע '+wkKey();loadCovers();loadSubs();};
 document.getElementById('tabMore').onclick=function(){setTab('tabMore');openSheet('moreSheet');};
 document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet('themeSheet');};
 document.getElementById('btnJoinLink').onclick=async function(){
