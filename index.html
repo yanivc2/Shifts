@@ -323,6 +323,18 @@ main{padding:12px}
       <button class="auth-link" onclick="authMode('login')">כבר יש לך חשבון? לכניסה</button>
     </div>
 
+    <div class="auth-panel" id="pJoin">
+      <div style="text-align:center;margin-bottom:14px">
+        <div style="font-size:15px;font-weight:800" id="joinStore">…</div>
+        <div style="font-size:13px;color:var(--muted)" id="joinRole"></div>
+      </div>
+      <div class="auth-field"><label>שם מלא</label><input id="jnName" placeholder="השם שלך"></div>
+      <div class="auth-field"><label>שם משתמש</label><input id="jnUser" autocapitalize="off" autocorrect="off" placeholder="באנגלית, בלי רווחים"></div>
+      <div class="auth-field"><label>סיסמה</label><input id="jnPass" type="password" autocomplete="new-password" placeholder="לפחות 6 תווים"></div>
+      <button class="auth-btn" id="btnJoin">הצטרפות</button>
+      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:10px">אין שחזור סיסמה לשם משתמש — שמור אותה</p>
+    </div>
+
     <div class="auth-panel" id="pForgot">
       <div class="auth-field"><label>אימייל לאיפוס סיסמה</label><input id="fgEmail" type="email" inputmode="email" placeholder="name@email.com"></div>
       <button class="auth-btn" id="btnForgot">שליחת קישור איפוס</button>
@@ -450,6 +462,9 @@ main{padding:12px}
     <p>שותף = עריכה מלאה של הסניף. מנהל = צפייה ועריכת הסידור. ההזמנה לפי אימייל — כשהאדם נרשם או מתחבר, הסניף יופיע אצלו.</p></div>
   <div class="sheet-body" id="mgrBody"></div>
   <div id="pendWrap" style="padding:0 4px"></div>
+  <div style="padding:8px 4px 0">
+    <button class="btn btn-ghost" id="btnJoinLink" style="width:100%">🔗 הזמנה בקישור (וואטסאפ)</button>
+  </div>
   <div class="sheet-foot">
     <div style="display:flex;gap:8px;align-items:center">
       <input id="mgrEmail" placeholder="אימייל להזמנה" style="flex:1;min-width:0;padding:12px;border:1px solid var(--line);border-radius:10px" inputmode="email" autocapitalize="off" autocorrect="off">
@@ -1540,6 +1555,20 @@ document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document
 document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');document.getElementById('availInboxSub').textContent='שבוע '+wkKey();loadSubs();};
 document.getElementById('tabMore').onclick=function(){setTab('tabMore');openSheet('moreSheet');};
 document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet('themeSheet');};
+document.getElementById('btnJoinLink').onclick=async function(){
+  var role=(document.getElementById('mgrRole')||{}).value||'manager';
+  var b=this;b.disabled=true;
+  try{
+    var r=await sb.rpc('create_join_token',{p_store:S.cur,p_role:role,p_hours:48,p_max_uses:1});
+    if(r.error)throw r.error;
+    var url=joinLink(r.data);
+    var msg='הוזמנת לנהל את סידור העבודה בסניף "'+((loc()||{}).name||'')+'".\nהקישור תקף ל-48 שעות ולשימוש אחד:\n'+url;
+    if(navigator.share){navigator.share({title:'הזמנה לסידור עבודה',text:msg}).catch(function(){});}
+    else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('הקישור הועתק — הדבק בוואטסאפ');}
+    else{toast('הקישור נוצר');}
+  }catch(e){toast('יצירת הקישור נכשלה');}
+  b.disabled=false;
+};
 document.getElementById('btnManage').onclick=function(){openManage();};
 document.getElementById('btnSettings').onclick=function(){if(!canManage(S.cur)){toast('ההגדרות זמינות לבעלים ולשותפים בלבד');return;}openSheet('setSheet');};
 /* ---- Availability self-fill link + submissions (phase 3, owner side) ---- */
@@ -1814,7 +1843,7 @@ async function bootApp(){
   render();
 }
 function aMsg(t,kind){const m=document.getElementById('authMsg');if(!t){m.className='auth-msg';m.textContent='';return;}m.textContent=t;m.className='auth-msg '+(kind||'err');}
-function authMode(m){['login','signup','forgot','reset'].forEach(x=>{document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===m);});aMsg('');}
+function authMode(m){['login','signup','forgot','reset','join'].forEach(x=>{document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===m);});aMsg('');}
 function showAuthCard(){document.getElementById('authLoading').style.display='none';document.getElementById('authCard').style.display='block';document.getElementById('authScreen').style.display='flex';}
 function showLocked(msg,isError){
   document.getElementById('lockTitle').textContent=isError?'שגיאה':'אין גישה';
@@ -1831,12 +1860,31 @@ function heErr(e){const s=(e&&e.message||'').toLowerCase();
   if(s.includes('valid')&&s.includes('email'))return 'כתובת אימייל לא תקינה';
   if(s.includes('rate'))return 'יותר מדי ניסיונות — נסה שוב בעוד רגע';
   return (e&&e.message)||'שגיאה, נסה שוב';}
+function joinLink(tok){return REDIRECT+'?join='+encodeURIComponent(tok);}
+function uname2mail(u){return String(u||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'')+'@shifts.local';}
+var _joinTok=null;
+async function showJoin(tok){
+  _joinTok=tok;
+  showAuthCard();
+  var info=null;
+  try{const r=await sb.rpc('join_token_info',{p_token:tok});if(r.error)throw r.error;info=r.data;}catch(e){info=null;}
+  if(!info||!info.valid){authMode('login');aMsg('קישור ההצטרפות אינו תקף או שפג תוקפו');return;}
+  document.getElementById('joinStore').textContent='הצטרפות לסניף '+(info.store_name||'');
+  document.getElementById('joinRole').textContent=(info.role==='coowner'?'כשותף — עריכה מלאה':'כמנהל — צפייה ועריכת הסידור');
+  authMode('join');
+}
 async function initAuth(){
   const recovery=(location.hash+location.search).includes('type=recovery');
   const fillToken=new URLSearchParams(location.search).get('fill');
+  const joinToken=new URLSearchParams(location.search).get('join');
   if(typeof supabase==='undefined'){showAuthCard();aMsg('טעינת מערכת ההתחברות נכשלה. בדוק חיבור לאינטרנט ורענן.');return;}
   sb=supabase.createClient(SB_URL,SB_KEY);
   if(fillToken){document.getElementById('authScreen').style.display='none';initFill(fillToken);return;}
+  if(joinToken){
+    const {data:{session:_s}}=await sb.auth.getSession();
+    if(_s){try{await sb.rpc('redeem_join_token',{p_token:joinToken});}catch(e){}showApp();return;}
+    showJoin(joinToken);return;
+  }
   sb.auth.onAuthStateChange((event,session)=>{
     if(event==='PASSWORD_RECOVERY'){showAuthCard();authMode('reset');return;}
     if(session&&!recovery){showApp();}
@@ -1851,6 +1899,24 @@ document.getElementById('btnLogin').onclick=async()=>{
   b.disabled=true;aMsg('');
   const {error}=await sb.auth.signInWithPassword({email,password:pass});
   b.disabled=false;if(error)aMsg(heErr(error));
+};
+document.getElementById('btnJoin').onclick=async()=>{
+  const b=document.getElementById('btnJoin');
+  const nm=document.getElementById('jnName').value.trim();
+  const un=document.getElementById('jnUser').value.trim();
+  const pw=document.getElementById('jnPass').value;
+  if(!nm){aMsg('מלא שם מלא');return;}
+  if(!/^[A-Za-z0-9._-]{3,}$/.test(un)){aMsg('שם משתמש: לפחות 3 תווים באנגלית/ספרות');return;}
+  if(!pw||pw.length<6){aMsg('סיסמה קצרה מדי (לפחות 6 תווים)');return;}
+  b.disabled=true;aMsg('');
+  const mail=uname2mail(un);
+  var r=await sb.auth.signUp({email:mail,password:pw,options:{data:{full_name:nm}}});
+  if(r.error&&String(r.error.message||'').toLowerCase().indexOf('already')<0){b.disabled=false;aMsg(heErr(r.error));return;}
+  var si=await sb.auth.signInWithPassword({email:mail,password:pw});
+  if(si.error){b.disabled=false;aMsg('שם המשתמש כבר תפוס או שהסיסמה שגויה');return;}
+  try{const rr=await sb.rpc('redeem_join_token',{p_token:_joinTok});if(rr.error)throw rr.error;}
+  catch(e){b.disabled=false;aMsg('קישור ההצטרפות אינו תקף או שפג תוקפו');return;}
+  b.disabled=false;showApp();
 };
 document.getElementById('btnSignup').onclick=async()=>{
   const b=document.getElementById('btnSignup'),name=document.getElementById('suName').value.trim(),email=document.getElementById('suEmail').value.trim(),pass=document.getElementById('suPass').value;
