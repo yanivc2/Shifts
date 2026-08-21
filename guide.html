@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>מדריך — סידור עבודה</title>
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Suez+One&family=Assistant:wght@400;600;700;800&display=swap">
+<style>
+:root{--ink:#201e1d;--muted:#645c50;--line:#dcd3c4;--bg:#f5ead8;--card:#f9f4ed;--acc:#c67139;--tint:#fff2eb;--sage:#e1eecc;--sagef:#56633f}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:Assistant,-apple-system,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:16px;line-height:1.6;padding-bottom:60px}
+header{background:var(--acc);color:#fff;padding:40px 20px 26px;border-radius:0 0 34px 34px}
+header h1{font-family:"Suez One",Georgia,serif;font-size:28px;font-weight:400}
+header p{opacity:.92;font-size:14px;margin-top:6px}
+.tabs{display:flex;gap:8px;padding:16px 14px 0;position:sticky;top:0;background:var(--bg);z-index:5}
+.tabs button{flex:1;padding:12px 8px;border:none;border-radius:999px;font:800 14px Assistant,sans-serif;background:var(--card);color:var(--muted);cursor:pointer}
+.tabs button.on{background:var(--acc);color:#fff}
+main{padding:14px}
+section{display:none}
+section.on{display:block}
+h2{font-family:"Suez One",Georgia,serif;font-size:21px;font-weight:400;margin:22px 0 10px}
+h2:first-child{margin-top:6px}
+.card{background:var(--card);border-radius:24px;padding:16px 18px;margin-bottom:12px;box-shadow:0 1px 2px rgba(46,43,37,.12)}
+.card h3{font-size:16px;font-weight:800;margin-bottom:6px}
+.card p{font-size:14.5px;color:var(--muted)}
+ol,ul{margin:8px 0 0;padding-right:20px;font-size:14.5px;color:var(--muted)}
+li{margin-bottom:5px}
+b{color:var(--ink)}
+.path{display:inline-block;background:var(--tint);color:var(--acc);border-radius:999px;padding:3px 10px;font-size:13px;font-weight:800;margin:2px 0}
+.note{background:var(--sage);color:var(--sagef);border-radius:16px;padding:12px 14px;font-size:13.5px;font-weight:600;margin-top:10px}
+.warn{background:#ffe1d0;color:#8c491a;border-radius:16px;padding:12px 14px;font-size:13.5px;font-weight:600;margin-top:10px}
+footer{text-align:center;color:var(--muted);font-size:12.5px;padding:24px 16px}
+</style>
+</head>
+<body>
+
+<header>
+  <h1>📋 סידור עבודה</h1>
+  <p>מדריך שימוש — כל מה שאפשר לעשות באפליקציה</p>
+</header>
+
+<div class="tabs">
+  <button id="tEmp" class="on" onclick="show('emp')">👤 לעובד</button>
+  <button id="tMgr" onclick="show('mgr')">🗂️ למנהל</button>
+</div>
+
+<main>
+
+<!-- ================= EMPLOYEE ================= -->
+<section id="emp" class="on">
+
+  <h2>לפני הכל</h2>
+  <div class="card">
+    <h3>הקישור האישי שלך</h3>
+    <p>קיבלת בוואטסאפ קישור אישי. הוא הכניסה שלך למשמרות — <b>שמור אותו</b>.</p>
+    <ol>
+      <li>פתח את הקישור בטלפון</li>
+      <li>לחץ על כפתור <b>השיתוף</b> בדפדפן</li>
+      <li>בחר <b>הוספה למסך הבית</b></li>
+    </ol>
+    <div class="warn">הקישור אישי — הוא מזהה אותך. אל תעביר אותו לאף אחד.</div>
+  </div>
+
+  <h2>המשמרות שלי</h2>
+  <div class="card">
+    <h3>מה רואים במסך</h3>
+    <ul>
+      <li><b>המשמרת הבאה שלך</b> — למעלה, עם התפקיד והשעות</li>
+      <li><b>השבוע שלי</b> — כל המשמרות שלך השבוע לפי הסדר</li>
+    </ul>
+    <div class="note">אתה רואה רק את המשמרות שלך. לא רואים מי עוד עובד.</div>
+  </div>
+
+  <h2>בקשות</h2>
+  <div class="card">
+    <h3>❌ ביטול משמרת</h3>
+    <p>ליד כל משמרת יש כפתור <b>ביטול</b>.</p>
+    <ol><li>לחץ <b>ביטול</b></li><li>כתוב סיבה (לא חובה)</li><li>הבקשה נשלחת למנהל</li></ol>
+    <div class="note">המשמרת מבוטלת רק אחרי שהמנהל מאשר.</div>
+  </div>
+
+  <div class="card">
+    <h3>🔁 החלפה עם עובד אחר</h3>
+    <ol>
+      <li>לחץ <b>החלפה</b> ליד המשמרת</li>
+      <li>בחר את העובד שיחליף אותך</li>
+      <li>כתוב סיבה (לא חובה)</li>
+      <li>נפתח וואטסאפ — שלח לו את ההודעה</li>
+    </ol>
+    <div class="warn">ההחלפה נכנסת לתוקף רק אחרי <b>שניהם</b>: העובד המחליף מאשר, ואז המנהל מאשר.</div>
+  </div>
+
+  <div class="card">
+    <h3>✋ ביקשו ממך להחליף</h3>
+    <p>אם מישהו ביקש להחליף איתך, זה יופיע אצלך תחת <b>בקשות החלפה שנשלחו אליך</b>.</p>
+    <ol><li>לחץ <b>אישור</b></li><li>יופיע "ממתין לאישור המנהל"</li></ol>
+  </div>
+
+  <div class="card">
+    <h3>🏖️ בקשת חופשה</h3>
+    <ol><li>לחץ <b>בקשת חופשה</b></li><li>הזן תאריך התחלה בפורמט <b>2026-09-01</b></li><li>הזן תאריך סיום</li></ol>
+  </div>
+
+  <div class="card">
+    <h3>💸 בקשת מפרעה</h3>
+    <ol><li>לחץ <b>בקשת מפרעה</b></li><li>הזן סכום בשקלים</li><li>כתוב סיבה (לא חובה)</li></ol>
+    <div class="note">כל הבקשות שלך והסטטוס שלהן מופיעים אצלך במסך — אין צורך לשאול.</div>
+  </div>
+
+  <h2>זמינות לשבוע הבא</h2>
+  <div class="card">
+    <h3>איך מגישים</h3>
+    <ol>
+      <li>גלול ל<b>הזמינות שלי לשבוע הבא</b></li>
+      <li>לחץ על המשמרות שאתה <b>יכול</b> לעבוד — הן נצבעות</li>
+      <li>לחץ <b>שליחת זמינות</b></li>
+    </ol>
+    <div class="note">אפשר לשלוח שוב — השליחה האחרונה מחליפה את הקודמת.</div>
+  </div>
+
+  <h2>דיווח שעות</h2>
+  <div class="card">
+    <h3>מתי להשתמש</h3>
+    <p>אם לא העבירו אותך בשעון הנוכחות, או שהעברה לא נקלטה — <b>דווח כאן</b> כדי שהשעות לא ילכו לאיבוד.</p>
+    <ol><li>לחץ <b>דיווח יום עבודה</b></li><li>תאריך · שעת כניסה · שעת יציאה</li><li>הוסף הערה אם צריך</li></ol>
+    <div class="note">אפשר לדווח על כמה ימים — כל יום בנפרד.</div>
+  </div>
+
+  <h2>משימות ונהלים</h2>
+  <div class="card">
+    <h3>✅ המשימות שלי</h3>
+    <ol><li>סיימת משימה — לחץ <b>בוצע</b></li><li>אם כתוב <b>📷 יש לצלם</b>, תתבקש להוסיף קישור לתמונה</li></ol>
+    <div class="note">נשמרת שעת הביצוע ומי ביצע.</div>
+  </div>
+  <div class="card">
+    <h3>📚 נהלים והדרכות</h3>
+    <p>מסמכים וסרטוני הדרכה. לחיצה על <b>פתיחה</b> פותחת אותם.</p>
+  </div>
+
+</section>
+
+<!-- ================= MANAGER ================= -->
+<section id="mgr">
+
+  <h2>ניווט</h2>
+  <div class="card">
+    <h3>ארבעה טאבים למטה</h3>
+    <ul>
+      <li><b>🗓️ הסידור</b> — לוח המשמרות</li>
+      <li><b>👥 הצוות</b> — עובדים</li>
+      <li><b>✋ זמינות</b> — בקשות, הגשות, שעות, משימות, נהלים</li>
+      <li><b>⋯ עוד</b> — הדפסה, שיתוף, הגדרות</li>
+    </ul>
+    <p style="margin-top:8px">למעלה — טאבים של הסניפים. החצים: <b>‹ ימין</b> שבוע קודם · <b>› שמאל</b> שבוע הבא.</p>
+  </div>
+
+  <h2>בניית הסידור</h2>
+  <div class="card">
+    <h3>שיבוץ עובד</h3>
+    <ol><li>לחץ על <b>➕</b> במשמרת</li><li>לחץ על שם העובד</li><li>לחץ <b>🕐</b> ליד השם כדי לקבוע שעות</li></ol>
+    <div class="note">תג הכיסוי בראש כל יום מראה: <b>מאויש</b> · <b>2/3</b> · <b>ריק</b>.</div>
+  </div>
+
+  <div class="card">
+    <h3>📌 משמרת קבועה</h3>
+    <p>משמרת שהעובד עושה <b>כל שבוע</b>. נקבעת מכפתור הנעיצה בתא, או ממסך השיבוץ של העובד.</p>
+    <p style="margin-top:8px"><b>במסך השיבוץ (הצוות → 📅 שיבוץ)</b> לחיצה מחליפה בין ארבעה מצבים:</p>
+    <ul>
+      <li><b>—</b> לא משובץ</li>
+      <li><b>✓</b> השבוע בלבד</li>
+      <li><b>📌</b> קבוע — כל שבוע</li>
+      <li><b>⊘</b> מבוטל השבוע בלבד — <b>חוזר בשבוע הבא</b></li>
+    </ul>
+    <div class="warn">לחיצה נוספת על ⊘ מוחקת את הקביעות לגמרי.</div>
+  </div>
+
+  <div class="card">
+    <h3>🕐 שעות במכה אחת</h3>
+    <p><span class="path">הצוות ← 📅 שיבוץ</span> מתחת לטבלה מופיעות כל המשמרות שלו השבוע.</p>
+    <ul><li>🕐 ליד כל משמרת — שעות לאותה משמרת</li><li><b>אותן שעות לכל המשמרות</b> — מזין פעם אחת, חל על כולן</li></ul>
+    <div class="note">שינוי שעות במשמרת 📌 קבועה מעדכן גם את השבועות הבאים.</div>
+  </div>
+
+  <h2>פרסום ונעילה</h2>
+  <div class="card">
+    <h3>איך מפרסמים</h3>
+    <p><span class="path">⋯ עוד ← 📤 שיתוף תמונה</span> — השיתוף בוואטסאפ <b>הוא</b> הפרסום. נשמרת גרסה ממוספרת.</p>
+    <p style="margin-top:8px">מעל הלוח יופיע סרגל:</p>
+    <ul>
+      <li><b>📤 פורסם</b> — הלוז תואם למה ששלחת</li>
+      <li><b>⚠️ שונה אחרי הפרסום</b> — ערכת ולא שלחת מחדש</li>
+      <li><b>🔒 נעול</b> — השבוע הסתיים</li>
+    </ul>
+    <div class="note"><b>מה נשלח</b> — מציג בדיוק את הגרסה ששלחת. שבוע שהסתיים מוצג לפי מה ששלחת, לא לפי עריכות מאוחרות.</div>
+    <div class="warn">השבוע הנוכחי לעולם לא ננעל. שבוע שהסתיים — <b>עריכת חירום</b> פותחת אותו ויוצרת גרסה חדשה.</div>
+  </div>
+
+  <h2>בקשות מהעובדים</h2>
+  <div class="card">
+    <h3>✋ זמינות — התיבה</h3>
+    <p>כל הבקשות במקום אחד עם <b>אישור</b> או <b>דחייה</b>:</p>
+    <ul>
+      <li><b>ביטול משמרת</b> — באישור העובד יורד מהתא</li>
+      <li><b>החלפה</b> — המשמרת עוברת לעובד המחליף עם התפקיד והשעות</li>
+      <li><b>חופשה</b> — התאריכים נרשמים על כרטיס העובד</li>
+      <li><b>מפרעה</b> — נרשמת לסיכום החודשי</li>
+    </ul>
+    <div class="warn">בהחלפה — כפתור האישור מופיע <b>רק אחרי</b> שהעובד המחליף אישר.</div>
+  </div>
+
+  <div class="card">
+    <h3>הגשות זמינות</h3>
+    <ul>
+      <li><b>החלה</b> — מזרים את הזמינות לסידור בלחיצה</li>
+      <li><b>צפייה</b> — אילו משמרות סומנו</li>
+      <li><b>טרם ענו</b> — מי לא הגיש, עם שליחה בוואטסאפ</li>
+    </ul>
+    <div class="note">מוצגות הגשות לשבוע הנוכחי <b>ולשבוע הבא</b> — העובדים מגישים לשבוע הבא.</div>
+  </div>
+
+  <h2>שעות ושכר</h2>
+  <div class="card">
+    <h3>🕐 דיווחי שעות</h3>
+    <p>בדיקה אוטומטית מול <b>הלוז שנשלח</b>:</p>
+    <ul>
+      <li><b style="color:#1f8a5b">ירוק</b> — הופיע בלוז, ורואים באיזו משמרת</li>
+      <li><b style="color:#c8403e">אדום</b> — לא הופיע בלוז באותו תאריך</li>
+    </ul>
+    <p style="margin-top:8px">אפשר <b>לערוך</b> שעות, <b>למחוק</b> יום, או <b>להוסיף יום ידנית</b> לעובד ששכח.</p>
+    <p style="margin-top:8px"><b>📤 שליחה למזכירה</b> — בונה את ההודעה עם שם, תאריך, כניסה ויציאה.</p>
+  </div>
+
+  <div class="card">
+    <h3>💸 סיכום מפרעות החודש</h3>
+    <p>כל המפרעות שאושרו מתחילת החודש, עם תאריכים וסה"כ — מוכן לשליחה.</p>
+  </div>
+
+  <h2>משימות ונהלים</h2>
+  <div class="card">
+    <h3>✅ משימות</h3>
+    <ol>
+      <li>לחץ <b>משימה חדשה</b></li>
+      <li>כתוב מה לעשות ופירוט</li>
+      <li>בחר אם <b>לדרוש צילום</b> של התוצאה</li>
+      <li>שייך לעובד מסוים או ל<b>כל הצוות</b></li>
+    </ol>
+    <div class="note">משימת "כל הצוות" — כל אחד יכול לבצע, ונרשם <b>מי</b> ביצע ומתי.</div>
+  </div>
+
+  <div class="card">
+    <h3>📚 נהלים והדרכות</h3>
+    <ol><li>לחץ <b>הוספת נוהל / קישור</b></li><li>שם + קישור לגוגל דרייב או יוטיוב</li><li>בחר: <b>הסניף הזה</b> או <b>כל הסניפים</b></li></ol>
+  </div>
+
+  <h2>עובדים</h2>
+  <div class="card">
+    <h3>עובד חדש</h3>
+    <p><span class="path">הצוות ← הוספת עובדים</span> ידנית, מאנשי הקשר, או מקובץ.</p>
+    <p style="margin-top:8px"><b>סיכום זמינות עם העובד</b> — סמן את הימים שסוכם שהוא <b>לא</b> עובד, והוסף הערה על השעות שסוכמו.</p>
+    <div class="note">שיבוץ ליום כזה, או לתאריכי חופשה שאושרה, יקפיץ אזהרה עם מה שסוכם — כדי שלא תשבץ בטעות.</div>
+  </div>
+
+  <div class="card">
+    <h3>🔗 קישור אישי לעובד</h3>
+    <p><span class="path">הצוות ← 🔗</span> ליד העובד — נפתח שיתוף, שלח לו בוואטסאפ.</p>
+  </div>
+
+  <div class="card">
+    <h3>הזמנת שותף או מנהל</h3>
+    <p><span class="path">⋯ עוד ← ⚙️ הגדרות ← שותפים והרשאות</span></p>
+    <ol><li>בחר תפקיד — <b>שותף</b> או <b>מנהל</b></li><li>לחץ <b>🔗 הזמנה בקישור</b></li><li>שלח בוואטסאפ</li></ol>
+    <div class="note">הקישור תקף 48 שעות, לשימוש אחד, ורק לסניף שנבחר. המוזמן נרשם בשם משתמש וסיסמה — בלי מייל.</div>
+  </div>
+
+  <h2>נוסף</h2>
+  <div class="card">
+    <h3>🎨 ערכת נושא</h3>
+    <p><span class="path">⋯ עוד ← ⚙️ הגדרות ← 🎨 ערכת נושא</span> — ארבע ערכות כולל מצב כהה.</p>
+  </div>
+  <div class="card">
+    <h3>📇 ספר טלפונים · 🖨️ הדפסה · 📅 לוח מלא</h3>
+    <p>הכל תחת <span class="path">⋯ עוד</span>.</p>
+  </div>
+  <div class="card">
+    <h3>⏳ חיווי שמירה</h3>
+    <p>תווית בפינה מציינת שמירה שלא הושלמה. <b>לחיצה עליה מנסה שוב.</b> אם היא נעלמה — הכל נשמר.</p>
+  </div>
+
+</section>
+
+</main>
+
+<footer>סידור עבודה · מדריך שימוש</footer>
+
+<script>
+function show(id){
+  document.getElementById('emp').className = id==='emp'?'on':'';
+  document.getElementById('mgr').className = id==='mgr'?'on':'';
+  document.getElementById('tEmp').className = id==='emp'?'on':'';
+  document.getElementById('tMgr').className = id==='mgr'?'on':'';
+  window.scrollTo(0,0);
+}
+</script>
+</body>
+</html>
