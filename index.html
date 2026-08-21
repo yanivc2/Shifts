@@ -562,6 +562,7 @@ main{padding:12px}
   <div class="sheet-head"><h2 id="eaTitle"></h2><p id="eaWeek"></p></div>
   <div class="sheet-body">
     <table class="av-grid" id="eaGrid"></table>
+    <div id="eaHours"></div>
     <div class="legend">
       <span><i style="background:#C4CBD5"></i>לא משובץ</span>
       <span><i style="background:var(--ok)"></i>השבוע</span>
@@ -1486,6 +1487,51 @@ function openEmpAssign(empId){
     }
     openEmpAssign(empId);
   });
+
+  /* ---- hours for every shift this employee has this week ---- */
+  var hbox=document.getElementById('eaHours');
+  var assigned=[];
+  DAYS.forEach(function(dn,di){
+    SHIFTS.forEach(function(sh){
+      var a=getCell(di,sh.id).find(function(c){return c.empId===empId;});
+      if(a)assigned.push({di:di,sh:sh.id,dn:dn,sn:sh.name,a:a,fx:isFixed(empId,di,sh.id)});
+    });
+  });
+  if(!assigned.length){hbox.innerHTML='';}
+  else{
+    var hh='<div class="sec-t">שעות למשמרות שלו השבוע</div>';
+    assigned.forEach(function(x,ix){
+      hh+='<div class="sub-row"><div class="si"><b>'+x.dn+' · '+x.sn+'</b>'+
+          '<small>'+(x.a.role==='store'?'חנות':'קופה')+(x.fx?' · 📌 קבוע':'')+'</small></div>'+
+          '<button class="sub-act'+(x.a.hrs?'':' ghost')+'" data-h="'+ix+'">🕐 '+(x.a.hrs?x.a.hrs:'שעות')+'</button></div>';
+    });
+    hh+='<button class="btn btn-ghost" id="eaAllHrs" style="width:100%;margin-top:6px">🕐 אותן שעות לכל המשמרות</button>';
+    hbox.innerHTML=hh;
+    var setHrs=function(x,v){
+      var arr=getCell(x.di,x.sh),a=arr.find(function(c){return c.empId===empId;});
+      if(!a)return;
+      a.hrs=v;setCell(x.di,x.sh,arr);
+      if(isFixed(empId,x.di,x.sh)){
+        setFix(x.di,x.sh,getFix(x.di,x.sh).map(function(f){
+          return f.empId===empId?Object.assign({},f,{hrs:v}):f;}));
+      }
+    };
+    hbox.querySelectorAll('[data-h]').forEach(function(b){
+      b.onclick=async function(){
+        var x=assigned[+b.getAttribute('data-h')];
+        var v=await askText('שעות · '+x.dn+' '+x.sn+' (ריק = משמרת מלאה)',x.a.hrs||'','לדוגמה: 11-23');
+        if(v===null)return;
+        setHrs(x,v.trim());openEmpAssign(empId);
+      };
+    });
+    document.getElementById('eaAllHrs').onclick=async function(){
+      var v=await askText('שעות לכל '+assigned.length+' המשמרות של '+emp.name,'','לדוגמה: 11-23');
+      if(v===null)return;
+      assigned.forEach(function(x){setHrs(x,v.trim());});
+      toast('השעות עודכנו ל-'+assigned.length+' משמרות ✓');
+      openEmpAssign(empId);
+    };
+  }
   openSheet('eaSheet');
 }
 
