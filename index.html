@@ -437,6 +437,7 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnGrid" style="width:100%;margin-bottom:8px">📅 לוח מלא</button>
     <button class="btn btn-ghost" id="btnPrint" style="width:100%;margin-bottom:8px">🖨️ הדפסה</button>
     <button class="btn btn-ghost" id="btnShare" style="width:100%;margin-bottom:8px">📤 שיתוף תמונה</button>
+    <button class="btn btn-ghost" id="btnPhoneBook" style="width:100%;margin-bottom:8px">📇 ספר טלפונים</button>
     <button class="btn btn-ghost" id="btnRenameLoc" style="width:100%;margin-bottom:8px">✏️ שינוי שם סניף</button>
     <button class="btn btn-ghost" id="btnSettings" style="width:100%;margin-bottom:8px">⚙️ הגדרות</button>
     <button class="btn btn-ghost" id="btnLogout" style="width:100%;color:var(--no)">🚪 יציאה</button>
@@ -717,15 +718,6 @@ function mergePreset(){
   save({t:'emps'});return n;
 }
 
-async function load(){
-  let raw=null;
-  try{const r=await window.storage.get('sched-v1');if(r&&r.value)raw=r.value;}catch(e){}
-  if(!raw){try{raw=localStorage.getItem('sched-v1');}catch(e){}}
-  if(raw){try{S=JSON.parse(raw);}catch(e){raw=null;}}
-  if(!S.locations||!S.locations.length)S.locations=[{id:'L1',name:'סניף 1',employees:[]}];
-  if(!S.locations.find(l=>l.id===S.cur))S.cur=S.locations[0].id;
-  if(!raw)mergePreset();
-}
 let saveT,localOK=null,remoteOK=null,rtChan=null;
 /* ---------- Employee app (personal link) ---------- */
 var _meTok=null,_meWeek=null,_meNextWeek=null,_meAvail={};
@@ -753,7 +745,12 @@ async function initMe(tok){
   }
   document.getElementById('meStore').textContent=info.store_name||'';
   document.getElementById('meHello').textContent='שלום '+(info.emp_name||'');
-  var cells=info.cells||{},keys=Object.keys(cells).sort();
+  var cells=info.cells||{},_ord={},_oi=0;
+  SHIFTS.forEach(function(_s){_ord[_s.id]=_oi++;});
+  var keys=Object.keys(cells).sort(function(a,b){
+    var pa=a.split('-'),pb=b.split('-');
+    return (parseInt(pa[0],10)-parseInt(pb[0],10))||((_ord[pa[1]]||0)-(_ord[pb[1]]||0));
+  });
   var h='';
   if(!keys.length)h='<p style="color:var(--muted);font-size:13.5px">אין לך משמרות השבוע.</p>';
   keys.forEach(function(k){
@@ -764,8 +761,12 @@ async function initMe(tok){
        '<button class="sub-act ghost" data-swap="'+k+'">החלפה</button></div>';
   });
   document.getElementById('meWeek').innerHTML=h;
-  document.getElementById('meNext').textContent=keys.length?cellLabel(keys[0]):'אין משמרות';
-  document.getElementById('meNextSub').textContent=keys.length?((cells[keys[0]].role==='store'?'חנות':'קופה')+(cells[keys[0]].hrs?' · '+cells[keys[0]].hrs:'')):'';
+  var _td=new Date().getDay();
+  var _nk=null;
+  for(var _i=0;_i<keys.length;_i++){if(parseInt(keys[_i].split('-')[0],10)>=_td){_nk=keys[_i];break;}}
+  if(!_nk&&keys.length)_nk=keys[0];
+  document.getElementById('meNext').textContent=_nk?cellLabel(_nk):'אין משמרות';
+  document.getElementById('meNextSub').textContent=_nk?((cells[_nk].role==='store'?'חנות':'קופה')+(cells[_nk].hrs?' · '+cells[_nk].hrs:'')):'';
   var mw=document.getElementById('meWeek');
   async function sendReq(kind,extra,btn,title){
     var note=await askText(title,'','סיבה (לא חובה)');
@@ -959,8 +960,10 @@ function applyApproved(c){
   if(c.kind==='vacation'){
     var emps=(loc()||{}).employees||[];
     var e=emps.find(function(x){return x.id===c.emp_id;});
-    if(e){e.vac=(e.vac||[]).concat([{from:c.date_from,to:c.date_to}]);save({t:'emps'});}
-    toast('החופשה נרשמה לעובד ✓');
+    if(!e){toast('העובד לא נמצא ברשימה');return;}
+    if(!isOwner(S.cur)){toast('אושר — רישום החופשה בכרטיס העובד ממתין לאישור בעל העסק');}
+    else{toast('החופשה נרשמה לעובד ✓');}
+    e.vac=(e.vac||[]).concat([{from:c.date_from,to:c.date_to}]);save({t:'emps'});
     return;
   }
   if((c.kind==='cancel'||c.kind==='cover'||c.kind==='swap')&&c.week_key&&c.cell){
@@ -1401,8 +1404,10 @@ async function loadSubs(){
   var box=document.getElementById('availInbox');if(!box)return;
   box.innerHTML='<p style="color:var(--muted);padding:10px 2px">טוען…</p>';
   try{
+    var _nx=new Date(weekStart);_nx.setDate(_nx.getDate()+7);
+    var _nxk=_nx.toISOString().slice(0,10);
     var r=await sb.from('avail_submissions').select('id,emp_id,emp_name,week_key,data,created_at')
-        .eq('store_id',S.cur).eq('week_key',wkKey()).order('created_at',{ascending:false});
+        .eq('store_id',S.cur).in('week_key',[wkKey(),_nxk]).order('created_at',{ascending:false});
     if(r.error)throw r.error;
     _subs=r.data||[];
   }catch(e){box.innerHTML='<p style="color:var(--no);padding:10px 2px">שגיאה בטעינת ההגשות</p>';return;}
@@ -1414,8 +1419,9 @@ function renderSubs(){
   if(!_subs.length)h+='<p style="color:var(--muted);padding:4px 2px 8px;font-size:13.5px">טרם התקבלו הגשות לשבוע זה.</p>';
   _subs.forEach(function(sub,ix){
     var n=subCount(sub.data),m=subEmp(sub);
+    var _wl=(sub.week_key===wkKey())?'השבוע':('שבוע '+sub.week_key);
     h+='<div class="sub-row"><div class="si"><b>'+esc(sub.emp_name||'ללא שם')+'</b>'+
-       '<small>'+n+' משמרות'+(m?'':' · לא מזוהה ברשימת העובדים')+'</small></div>'+
+       '<small>'+_wl+' · '+n+' משמרות'+(m?'':' · לא מזוהה ברשימת העובדים')+'</small></div>'+
        (m?'<button class="sub-act" data-apply="'+ix+'">החלה</button>':'')+
        '<button class="sub-act ghost" data-view="'+ix+'">צפייה</button></div>';
   });
@@ -2370,6 +2376,7 @@ function setTab(id){
 }
 document.getElementById('tabSched').onclick=function(){closeSheets();setTab('tabSched');};
 document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document.getElementById('btnEmps').click();};
+document.getElementById('btnPhoneBook').onclick=function(){openPhonebook();};
 document.getElementById('btnTasks').onclick=function(){openSheet('taskSheet');loadTasks();};
 document.getElementById('btnDocs').onclick=function(){openSheet('docSheet');loadDocs();};
 document.getElementById('btnHours').onclick=function(){openSheet('hrSheet');loadHourReports();};
