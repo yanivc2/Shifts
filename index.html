@@ -318,6 +318,10 @@ main{padding:12px}
   <div style="padding:16px 14px 40px">
     <div class="sec-t">השבוע שלי</div>
     <div id="meWeek"></div>
+    <div class="sec-t">המשימות שלי</div>
+    <div id="meTasks"></div>
+    <div class="sec-t">נהלים והדרכות</div>
+    <div id="meDocs"></div>
     <div class="sec-t">דיווח שעות</div>
     <div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">אם לא הועברת בשעון הנוכחות — דווח/י כאן את השעות שעבדת</div>
     <button class="sub-act ghost" id="meAddHrs" style="width:100%">➕ דיווח יום עבודה</button>
@@ -446,7 +450,9 @@ main{padding:12px}
   <div class="sheet-body">
     <div id="coverInbox"></div>
     <div id="availInbox"></div>
-    <button class="btn btn-ghost" id="btnHours" style="width:100%;margin:12px 0 8px">🕐 דיווחי שעות</button>
+    <button class="btn btn-ghost" id="btnTasks" style="width:100%;margin:12px 0 8px">✅ משימות</button>
+    <button class="btn btn-ghost" id="btnDocs" style="width:100%;margin-bottom:8px">📚 נהלים והדרכות</button>
+    <button class="btn btn-ghost" id="btnHours" style="width:100%;margin-bottom:8px">🕐 דיווחי שעות</button>
     <button class="btn btn-ghost" id="btnAdvSum" style="width:100%;margin-bottom:8px">💸 סיכום מפרעות החודש</button>
     <button class="btn btn-ghost" id="btnWaAvail" style="width:100%;margin-bottom:8px">📲 בקשת זמינות בוואטסאפ</button>
     <button class="btn btn-ghost" id="btnAvailLink" style="width:100%">🔗 קישור זמינות (מילוי עצמי)</button>
@@ -489,6 +495,20 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnImportCloud" style="width:100%;margin-bottom:8px">☁️ ייבוא נתוני המכשיר לענן</button>
   </div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="closeSheets()">סגירה</button></div>
+</div>
+
+<!-- Tasks -->
+<div class="sheet" id="taskSheet">
+  <div class="sheet-head"><h2>✅ משימות</h2><p>העובד מסמן ביצוע — נשמרת שעת הביצוע</p></div>
+  <div class="sheet-body" id="taskBody"></div>
+  <div class="sheet-foot"><button class="btn btn-ghost" onclick="closeSheets()">סגירה</button></div>
+</div>
+
+<!-- Procedures -->
+<div class="sheet" id="docSheet">
+  <div class="sheet-head"><h2>📚 נהלים והדרכות</h2><p>קישורים לגוגל דרייב או יוטיוב</p></div>
+  <div class="sheet-body" id="docBody"></div>
+  <div class="sheet-foot"><button class="btn btn-ghost" onclick="closeSheets()">סגירה</button></div>
 </div>
 
 <!-- Hour reports -->
@@ -783,7 +803,7 @@ async function initMe(tok){
     if(!n||n<=0){toast('סכום לא תקין');return;}
     sendReq('advance',{p_amount:n},null,'בקשת מפרעה '+n+' ₪');
   };
-  loadMyReqs();loadIncomingSwaps();loadMyHours();
+  loadMyReqs();loadIncomingSwaps();loadMyHours();loadMeTasks();loadMeDocs();
   renderMeAvail();
 }
 function renderMeAvail(){
@@ -960,6 +980,140 @@ function applyApproved(c){
     }
   }
 }
+/* ---------- Procedures / training material ---------- */
+async function loadDocs(){
+  var box=document.getElementById('docBody');if(!box)return;
+  box.innerHTML='<p style="color:var(--muted)">טוען…</p>';
+  try{
+    var r=await sb.from('store_docs').select('id,title,url,kind,store_id').order('created_at',{ascending:false});
+    if(r.error)throw r.error;
+    var list=(r.data||[]);
+    var h=list.map(function(d){
+      return '<div class="sub-row"><div class="si"><b>'+esc(d.title)+'</b>'+
+             '<small>'+(d.store_id?'סניף זה':'כל הסניפים')+' · '+(d.kind==='video'?'סרטון':'מסמך')+'</small></div>'+
+             '<a class="sub-act ghost" target="_blank" rel="noopener" href="'+esc(d.url)+'">פתיחה</a>'+
+             '<button class="sub-act ghost" data-dd="'+d.id+'">מחיקה</button></div>';
+    }).join('');
+    box.innerHTML=(h||'<p style="color:var(--muted)">אין נהלים עדיין.</p>')+
+      '<button class="btn btn-ghost" id="docAdd" style="width:100%;margin-top:10px">➕ הוספת נוהל / קישור</button>';
+    box.querySelectorAll('[data-dd]').forEach(function(b){
+      b.onclick=async function(){
+        if(!await askConfirm('למחוק את הנוהל?'))return;
+        try{var rr=await sb.from('store_docs').delete().eq('id',b.getAttribute('data-dd'));
+          if(rr.error)throw rr.error;loadDocs();}catch(e){toast('המחיקה נכשלה');}
+      };
+    });
+    document.getElementById('docAdd').onclick=addDoc;
+  }catch(e){box.innerHTML='<p style="color:var(--no)">שגיאה בטעינת הנהלים</p>';}
+}
+async function addDoc(){
+  var t=await askText('שם הנוהל','','לדוגמה: נוהל פתיחת משמרת');if(!t)return;
+  var u=await askText('קישור (גוגל דרייב / יוטיוב)','','https://');if(!u)return;
+  if(!/^https?:\/\//i.test(u)){toast('קישור לא תקין');return;}
+  var vid=/youtu|vimeo|\.mp4/i.test(u);
+  var all=await askConfirm('להציג את הנוהל בכל הסניפים שלך?\n(ביטול = רק בסניף הנוכחי)');
+  try{
+    var r=await sb.from('store_docs').insert({title:t,url:u,kind:vid?'video':'doc',
+      store_id:all?null:S.cur,owner_id:all?(await sb.auth.getUser()).data.user.id:null});
+    if(r.error)throw r.error;toast('נוסף ✓');loadDocs();
+  }catch(e){toast('ההוספה נכשלה');}
+}
+/* ---------- Tasks ---------- */
+async function loadTasks(){
+  var box=document.getElementById('taskBody');if(!box)return;
+  box.innerHTML='<p style="color:var(--muted)">טוען…</p>';
+  try{
+    var r=await sb.from('tasks').select('id,emp_name,title,detail,needs_photo,due_date,status,done_at,photo_url')
+      .eq('store_id',S.cur).order('created_at',{ascending:false}).limit(80);
+    if(r.error)throw r.error;
+    var list=r.data||[];
+    var open=list.filter(function(t){return t.status==='open';});
+    var done=list.filter(function(t){return t.status==='done';});
+    var h='<div class="sec-t">פתוחות ('+open.length+')</div>';
+    h+=open.length?open.map(function(t){
+      return '<div class="sub-row"><div class="si"><b>'+esc(t.title)+'</b><small>'+
+        esc(t.emp_name||'כל הצוות')+(t.due_date?' · '+t.due_date:'')+(t.needs_photo?' · 📷 דרוש צילום':'')+
+        '</small></div><button class="sub-act ghost" data-tx="'+t.id+'">מחיקה</button></div>';
+    }).join(''):'<p style="color:var(--muted);font-size:13.5px">אין משימות פתוחות.</p>';
+    h+='<div class="sec-t">בוצעו ('+done.length+')</div>';
+    h+=done.slice(0,20).map(function(t){
+      var w=t.done_at?new Date(t.done_at):null;
+      return '<div class="sub-row" style="border-color:var(--ok);background:var(--ok-bg)"><div class="si"><b>'+esc(t.title)+'</b>'+
+        '<small>'+esc(t.emp_name||'')+(w?' · '+w.toLocaleDateString('he-IL')+' '+w.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'')+'</small></div>'+
+        (t.photo_url?'<a class="sub-act ghost" target="_blank" rel="noopener" href="'+esc(t.photo_url)+'">צילום</a>':'')+'</div>';
+    }).join('');
+    h+='<button class="btn btn-ghost" id="taskAdd" style="width:100%;margin-top:10px">➕ משימה חדשה</button>';
+    box.innerHTML=h;
+    box.querySelectorAll('[data-tx]').forEach(function(b){
+      b.onclick=async function(){
+        if(!await askConfirm('למחוק את המשימה?'))return;
+        try{var rr=await sb.from('tasks').delete().eq('id',b.getAttribute('data-tx'));
+          if(rr.error)throw rr.error;loadTasks();}catch(e){toast('המחיקה נכשלה');}
+      };
+    });
+    document.getElementById('taskAdd').onclick=addTask;
+  }catch(e){box.innerHTML='<p style="color:var(--no)">שגיאה בטעינת המשימות</p>';}
+}
+async function addTask(){
+  var title=await askText('מה המשימה?','','לדוגמה: סידור מדף חלב');if(!title)return;
+  var detail=await askText('פירוט (לא חובה)','','');
+  var photo=await askConfirm('לדרוש מהעובד לצלם את התוצאה?');
+  var emps=(loc()||{}).employees||[];
+  var box=document.getElementById('taskBody');
+  box.innerHTML='<div class="sec-t">למי לשייך?</div>'+
+    '<button class="sub-row" style="width:100%;text-align:right" data-tn="-1"><div class="si"><b>כל הצוות</b></div></button>'+
+    emps.map(function(e,i){return '<button class="sub-row" style="width:100%;text-align:right" data-tn="'+i+'"><div class="si"><b>'+esc(e.name)+'</b></div></button>';}).join('');
+  box.querySelectorAll('[data-tn]').forEach(function(b){
+    b.onclick=async function(){
+      var i=+b.getAttribute('data-tn'),e=(i>=0)?emps[i]:null;
+      try{
+        var r=await sb.from('tasks').insert({store_id:S.cur,emp_id:e?e.id:null,emp_name:e?e.name:null,
+          title:title,detail:detail||null,needs_photo:!!photo,due_date:new Date().toISOString().slice(0,10)});
+        if(r.error)throw r.error;toast('המשימה נוצרה ✓');
+      }catch(err){toast('היצירה נכשלה');}
+      loadTasks();
+    };
+  });
+}
+/* ---------- Employee: tasks and procedures ---------- */
+async function loadMeTasks(){
+  var box=document.getElementById('meTasks');if(!box)return;
+  try{
+    var r=await sb.rpc('emp_tasks',{p_token:_meTok});if(r.error)throw r.error;
+    var list=r.data||[];
+    if(!list.length){box.innerHTML='<p style="color:var(--muted);font-size:13px">אין משימות פתוחות.</p>';return;}
+    box.innerHTML=list.map(function(t,i){
+      return '<div class="sub-row"><div class="si"><b>'+esc(t.title)+'</b><small>'+
+        esc(t.detail||'')+(t.needs_photo?(t.detail?' · ':'')+'📷 יש לצלם':'')+'</small></div>'+
+        '<button class="sub-act" data-tk="'+i+'">בוצע</button></div>';
+    }).join('');
+    box.querySelectorAll('[data-tk]').forEach(function(b){
+      b.onclick=async function(){
+        var t=list[+b.getAttribute('data-tk')];
+        var photo='';
+        if(t.needs_photo){
+          photo=await askText('קישור לצילום התוצאה','','הדבק/י קישור לתמונה');
+          if(!photo){toast('המשימה דורשת צילום');return;}
+        }
+        try{var rr=await sb.rpc('emp_complete_task',{p_token:_meTok,p_task:t.id,p_photo:photo||null});
+          if(rr.error)throw rr.error;toast('סומן כבוצע ✓');loadMeTasks();}
+        catch(e){toast('הסימון נכשל');}
+      };
+    });
+  }catch(e){box.innerHTML='';}
+}
+async function loadMeDocs(){
+  var box=document.getElementById('meDocs');if(!box)return;
+  try{
+    var r=await sb.rpc('emp_docs',{p_token:_meTok});if(r.error)throw r.error;
+    var list=r.data||[];
+    if(!list.length){box.innerHTML='<p style="color:var(--muted);font-size:13px">אין נהלים.</p>';return;}
+    box.innerHTML=list.map(function(d){
+      return '<div class="sub-row"><div class="si"><b>'+(d.kind==='video'?'🎬 ':'📄 ')+esc(d.title)+'</b></div>'+
+             '<a class="sub-act ghost" target="_blank" rel="noopener" href="'+esc(d.url)+'">פתיחה</a></div>';
+    }).join('');
+  }catch(e){box.innerHTML='';}
+}
 /* ---------- Employee: my filed hours ---------- */
 var HR_ST={open:'ממתין',sent:'נשלח למזכירה ✓',rejected:'בוטל'};
 async function loadMyHours(){
@@ -1017,9 +1171,10 @@ function renderHourReports(){
       '<small>'+esc((h.start_time||'')+'–'+(h.end_time||''))+' · '+(ok?('בלוז: '+esc(sched)):'לא הופיע בלוז')+
       (h.note?' · '+esc(h.note):'')+'</small></div>'+
       '<button class="sub-act ghost" data-hre="'+ix+'">עריכה</button>'+
-      '<button class="sub-act ghost" data-hrx="'+ix+'">ביטול</button></div>';
+      '<button class="sub-act ghost" data-hrd="'+ix+'">מחיקה</button></div>';
   }).join('')+
-  '<button class="btn btn-primary" id="hrSend" style="width:100%;margin-top:10px">📤 שליחה למזכירה</button>';
+  '<button class="btn btn-ghost" id="hrAdd" style="width:100%;margin-top:10px">➕ הוספת יום ידנית</button>'+
+  '<button class="btn btn-primary" id="hrSend" style="width:100%;margin-top:8px">📤 שליחה למזכירה</button>';
   box.querySelectorAll('[data-hre]').forEach(function(b){
     b.onclick=async function(){
       var h=_hrs[+b.getAttribute('data-hre')];
@@ -1040,7 +1195,38 @@ function renderHourReports(){
       catch(e){toast('הביטול נכשל');}
     };
   });
+  box.querySelectorAll('[data-hrd]').forEach(function(b){
+    b.onclick=async function(){
+      var h=_hrs[+b.getAttribute('data-hrd')];
+      if(!await askConfirm('למחוק לצמיתות את הדיווח של '+(h.emp_name||'')+' ל-'+h.work_date+'?'))return;
+      try{var r=await sb.from('hour_reports').delete().eq('id',h.id);
+        if(r.error)throw r.error;toast('נמחק');loadHourReports();}
+      catch(e){toast('המחיקה נכשלה');}
+    };
+  });
+  document.getElementById('hrAdd').onclick=addHourRow;
   document.getElementById('hrSend').onclick=sendHoursToSecretary;
+}
+async function addHourRow(){
+  var emps=(loc()||{}).employees||[];
+  if(!emps.length){toast('אין עובדים בסניף');return;}
+  var box=document.getElementById('hrBody');
+  box.innerHTML='<div class="sec-t">לאיזה עובד להוסיף יום?</div>'+
+    emps.map(function(e,i){return '<button class="sub-row" style="width:100%;text-align:right" data-hn="'+i+'"><div class="si"><b>'+esc(e.name)+'</b></div></button>';}).join('')+
+    '<button class="btn btn-ghost" style="width:100%;margin-top:8px" onclick="loadHourReports()">חזרה</button>';
+  box.querySelectorAll('[data-hn]').forEach(function(b){
+    b.onclick=async function(){
+      var e=emps[+b.getAttribute('data-hn')];
+      var d=await askText('תאריך העבודה — '+e.name,new Date().toISOString().slice(0,10),'YYYY-MM-DD');if(!d){loadHourReports();return;}
+      var st=await askText('שעת כניסה','','07:00');if(!st){loadHourReports();return;}
+      var en=await askText('שעת יציאה','','15:00');if(!en){loadHourReports();return;}
+      var nt=await askText('הערה (לא חובה)','','');
+      try{var r=await sb.rpc('mgr_add_hours',{p_store:S.cur,p_emp:e.id,p_date:d,p_start:st,p_end:en,p_note:nt||''});
+        if(r.error)throw r.error;toast('היום נוסף ✓');}
+      catch(err){toast('ההוספה נכשלה');}
+      loadHourReports();
+    };
+  });
 }
 async function sendHoursToSecretary(){
   if(!_hrs.length){toast('אין מה לשלוח');return;}
@@ -2183,6 +2369,8 @@ function setTab(id){
 }
 document.getElementById('tabSched').onclick=function(){closeSheets();setTab('tabSched');};
 document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document.getElementById('btnEmps').click();};
+document.getElementById('btnTasks').onclick=function(){openSheet('taskSheet');loadTasks();};
+document.getElementById('btnDocs').onclick=function(){openSheet('docSheet');loadDocs();};
 document.getElementById('btnHours').onclick=function(){openSheet('hrSheet');loadHourReports();};
 document.getElementById('btnAdvSum').onclick=advanceSummary;
 document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');document.getElementById('availInboxSub').textContent='שבוע '+wkKey();loadCovers();loadSubs();};
