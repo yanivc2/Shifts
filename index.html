@@ -1023,7 +1023,7 @@ async function loadTasks(){
   var box=document.getElementById('taskBody');if(!box)return;
   box.innerHTML='<p style="color:var(--muted)">טוען…</p>';
   try{
-    var r=await sb.from('tasks').select('id,emp_name,title,detail,needs_photo,due_date,status,done_at,photo_url')
+    var r=await sb.from('tasks').select('id,emp_name,title,detail,needs_photo,due_date,status,done_at,photo_url,done_by_name')
       .eq('store_id',S.cur).order('created_at',{ascending:false}).limit(80);
     if(r.error)throw r.error;
     var list=r.data||[];
@@ -1032,14 +1032,15 @@ async function loadTasks(){
     var h='<div class="sec-t">פתוחות ('+open.length+')</div>';
     h+=open.length?open.map(function(t){
       return '<div class="sub-row"><div class="si"><b>'+esc(t.title)+'</b><small>'+
-        esc(t.emp_name||'כל הצוות')+(t.due_date?' · '+t.due_date:'')+(t.needs_photo?' · 📷 דרוש צילום':'')+
+        esc(t.emp_name||'👥 כל הצוות')+(t.due_date?' · '+t.due_date:'')+(t.needs_photo?' · 📷 דרוש צילום':'')+
         '</small></div><button class="sub-act ghost" data-tx="'+t.id+'">מחיקה</button></div>';
     }).join(''):'<p style="color:var(--muted);font-size:13.5px">אין משימות פתוחות.</p>';
     h+='<div class="sec-t">בוצעו ('+done.length+')</div>';
     h+=done.slice(0,20).map(function(t){
       var w=t.done_at?new Date(t.done_at):null;
+      var who=t.done_by_name||t.emp_name||'';
       return '<div class="sub-row" style="border-color:var(--ok);background:var(--ok-bg)"><div class="si"><b>'+esc(t.title)+'</b>'+
-        '<small>'+esc(t.emp_name||'')+(w?' · '+w.toLocaleDateString('he-IL')+' '+w.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'')+'</small></div>'+
+        '<small>'+(who?'בוצע ע"י '+esc(who):'בוצע')+(w?' · '+w.toLocaleDateString('he-IL')+' '+w.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'}):'')+'</small></div>'+
         (t.photo_url?'<a class="sub-act ghost" target="_blank" rel="noopener" href="'+esc(t.photo_url)+'">צילום</a>':'')+'</div>';
     }).join('');
     h+='<button class="btn btn-ghost" id="taskAdd" style="width:100%;margin-top:10px">➕ משימה חדשה</button>';
@@ -1061,7 +1062,7 @@ async function addTask(){
   var emps=(loc()||{}).employees||[];
   var box=document.getElementById('taskBody');
   box.innerHTML='<div class="sec-t">למי לשייך?</div>'+
-    '<button class="sub-row" style="width:100%;text-align:right" data-tn="-1"><div class="si"><b>כל הצוות</b></div></button>'+
+    '<button class="sub-row" style="width:100%;text-align:right" data-tn="-1"><div class="si"><b>כל הצוות</b><small>כל עובד יראה אותה ויוכל לסמן שבוצעה</small></div></button>'+
     emps.map(function(e,i){return '<button class="sub-row" style="width:100%;text-align:right" data-tn="'+i+'"><div class="si"><b>'+esc(e.name)+'</b></div></button>';}).join('');
   box.querySelectorAll('[data-tn]').forEach(function(b){
     b.onclick=async function(){
