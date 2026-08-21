@@ -318,6 +318,7 @@ main{padding:12px}
   <div style="padding:16px 14px 40px">
     <div class="sec-t">השבוע שלי</div>
     <div id="meWeek"></div>
+    <button class="sub-act ghost" id="mePush" style="width:100%">🔔 הפעלת התראות</button>
     <div class="sec-t">המשימות שלי</div>
     <div id="meTasks"></div>
     <div class="sec-t">נהלים והדרכות</div>
@@ -437,6 +438,7 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnGrid" style="width:100%;margin-bottom:8px">📅 לוח מלא</button>
     <button class="btn btn-ghost" id="btnPrint" style="width:100%;margin-bottom:8px">🖨️ הדפסה</button>
     <button class="btn btn-ghost" id="btnShare" style="width:100%;margin-bottom:8px">📤 שיתוף תמונה</button>
+    <button class="btn btn-ghost" id="btnPush" style="width:100%;margin-bottom:8px">🔔 הפעלת התראות</button>
     <button class="btn btn-ghost" id="btnPhoneBook" style="width:100%;margin-bottom:8px">📇 ספר טלפונים</button>
     <button class="btn btn-ghost" id="btnRenameLoc" style="width:100%;margin-bottom:8px">✏️ שינוי שם סניף</button>
     <button class="btn btn-ghost" id="btnSettings" style="width:100%;margin-bottom:8px">⚙️ הגדרות</button>
@@ -804,6 +806,7 @@ async function initMe(tok){
     if(!n||n<=0){toast('סכום לא תקין');return;}
     sendReq('advance',{p_amount:n},null,'בקשת מפרעה '+n+' ₪');
   };
+  document.getElementById('mePush').onclick=function(){enablePush(_meTok);};
   loadMyReqs();loadIncomingSwaps();loadMyHours();loadMeTasks();loadMeDocs();
   renderMeAvail();
 }
@@ -1469,6 +1472,47 @@ function viewSub(sub){
     return DAYS[c.di]+' '+(sh?sh.name:c.sh);
   });
   toast(names.length?names.join(' · '):'ההגשה ריקה');
+}
+/* ---------- Web push ---------- */
+var VAPID_PUB='BKaqqlvU_B1cIXudsPoH_FDQVKEGFL-EgX3dlspbYc2sPNrhpBW-g-VQjcOgpPIbbYkA86lvx8rx1OCAPipT_wQ';
+function b64ToU8(b){
+  var pad='='.repeat((4-b.length%4)%4);
+  var raw=atob((b+pad).replace(/-/g,'+').replace(/_/g,'/'));
+  var out=new Uint8Array(raw.length);
+  for(var i=0;i<raw.length;i++)out[i]=raw.charCodeAt(i);
+  return out;
+}
+function pushSupported(){return ('serviceWorker' in navigator)&&('PushManager' in window);}
+function isStandalone(){return window.matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;}
+async function registerSW(){
+  if(!pushSupported())return null;
+  try{return await navigator.serviceWorker.register('./sw.js');}catch(e){return null;}
+}
+async function enablePush(empToken){
+  if(!pushSupported()){toast('הדפדפן הזה לא תומך בהתראות');return;}
+  if(!isStandalone()){
+    await askConfirm('כדי לקבל התראות באייפון צריך להוסיף את האפליקציה למסך הבית:\nשיתוף ← הוספה למסך הבית, ואז לפתוח משם.');
+    return;
+  }
+  var reg=await registerSW();
+  if(!reg){toast('רישום ההתראות נכשל');return;}
+  var perm=await Notification.requestPermission();
+  if(perm!=='granted'){toast('ההתראות נחסמו בהגדרות המכשיר');return;}
+  try{
+    var sub=await reg.pushManager.getSubscription();
+    if(!sub)sub=await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:b64ToU8(VAPID_PUB)});
+    var j=sub.toJSON(),keys=j.keys||{};
+    if(empToken){
+      var r=await sb.rpc('emp_register_push',{p_token:empToken,p_endpoint:j.endpoint,p_p256dh:keys.p256dh,p_auth:keys.auth});
+      if(r.error)throw r.error;
+    }else{
+      var u=(await sb.auth.getUser()).data.user;
+      var r2=await sb.from('push_subs').upsert({store_id:S.cur,user_id:u?u.id:null,emp_id:null,
+        endpoint:j.endpoint,p256dh:keys.p256dh,auth:keys.auth},{onConflict:'endpoint'});
+      if(r2.error)throw r2.error;
+    }
+    toast('התראות הופעלו ✓');
+  }catch(e){toast('הפעלת ההתראות נכשלה');}
 }
 /* ---------- Theme palettes ---------- */
 var THEMES=[
@@ -2376,6 +2420,7 @@ function setTab(id){
 }
 document.getElementById('tabSched').onclick=function(){closeSheets();setTab('tabSched');};
 document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document.getElementById('btnEmps').click();};
+document.getElementById('btnPush').onclick=function(){enablePush(null);};
 document.getElementById('btnPhoneBook').onclick=function(){openPhonebook();};
 document.getElementById('btnTasks').onclick=function(){openSheet('taskSheet');loadTasks();};
 document.getElementById('btnDocs').onclick=function(){openSheet('docSheet');loadDocs();};
@@ -2672,6 +2717,7 @@ async function bootApp(){
   startRealtime();
   render();
   try{await loadPublished();}catch(e){}
+  try{registerSW();}catch(e){}
 }
 function aMsg(t,kind){const m=document.getElementById('authMsg');if(!t){m.className='auth-msg';m.textContent='';return;}m.textContent=t;m.className='auth-msg '+(kind||'err');}
 function authMode(m){['login','signup','forgot','reset','join'].forEach(x=>{document.getElementById('p'+x.charAt(0).toUpperCase()+x.slice(1)).classList.toggle('on',x===m);});aMsg('');}
