@@ -302,6 +302,25 @@ main{padding:12px}
 </head>
 <body>
 
+<div id="meScreen" style="display:none;position:fixed;inset:0;z-index:1500;background:var(--bg);overflow-y:auto;direction:rtl">
+  <div style="background:var(--brand);color:var(--onacc);padding:56px 20px 26px;border-radius:0 0 34px 34px">
+    <div style="font-size:13px;font-weight:700;opacity:.9" id="meStore"></div>
+    <div style="font-family:'Suez One',Georgia,serif;font-size:27px;margin-top:4px" id="meHello"></div>
+    <div style="background:rgba(255,255,255,.18);border-radius:22px;padding:14px 16px;margin-top:14px">
+      <div style="font-size:12px;font-weight:700;opacity:.9">המשמרת הבאה שלך</div>
+      <div style="font-family:'Suez One',Georgia,serif;font-size:20px;margin-top:2px" id="meNext">—</div>
+      <div style="font-size:13px;margin-top:2px" id="meNextSub"></div>
+    </div>
+  </div>
+  <div style="padding:16px 14px 40px">
+    <div class="sec-t">השבוע שלי</div>
+    <div id="meWeek"></div>
+    <div class="sec-t">הזמינות שלי לשבוע הבא</div>
+    <div id="meAvail"></div>
+    <button class="btn btn-primary" id="meSend" style="width:100%;margin-top:12px">שליחת זמינות</button>
+  </div>
+</div>
+
 <div id="authScreen">
   <div id="authLoading">טוען…</div>
   <div class="auth-card" id="authCard" style="display:none">
@@ -638,6 +657,73 @@ async function load(){
   if(!raw)mergePreset();
 }
 let saveT,localOK=null,remoteOK=null,rtChan=null;
+/* ---------- Employee app (personal link) ---------- */
+var _meTok=null,_meWeek=null,_meNextWeek=null,_meAvail={};
+function empLink(tok){return REDIRECT+'?me='+encodeURIComponent(tok);}
+function wkKeyOf(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10);}
+function cellLabel(k){
+  var p=String(k).split('-'),di=parseInt(p[0],10),sh=p[1];
+  var s2=SHIFTS.find(function(x){return x.id===sh;});
+  return (DAYS[di]||'?')+' · '+(s2?s2.name:sh);
+}
+async function initMe(tok){
+  _meTok=tok;
+  document.getElementById('meScreen').style.display='block';
+  var now=new Date();
+  _meWeek=wkKeyOf(now);
+  var nx=new Date(now);nx.setDate(nx.getDate()+7);_meNextWeek=wkKeyOf(nx);
+  var info=null;
+  try{var r=await sb.rpc('emp_me',{p_token:tok,p_week:_meWeek});if(r.error)throw r.error;info=r.data;}catch(e){info=null;}
+  if(!info||!info.valid){
+    document.getElementById('meHello').textContent='הקישור אינו תקף';
+    document.getElementById('meWeek').innerHTML='<p style="color:var(--muted)">בקש/י קישור חדש מהמנהל.</p>';
+    document.getElementById('meAvail').innerHTML='';
+    document.getElementById('meSend').style.display='none';
+    return;
+  }
+  document.getElementById('meStore').textContent=info.store_name||'';
+  document.getElementById('meHello').textContent='שלום '+(info.emp_name||'');
+  var cells=info.cells||{},keys=Object.keys(cells).sort();
+  var h='';
+  if(!keys.length)h='<p style="color:var(--muted);font-size:13.5px">אין לך משמרות השבוע.</p>';
+  keys.forEach(function(k){
+    var c=cells[k];
+    h+='<div class="sub-row"><div class="si"><b>'+cellLabel(k)+'</b>'+
+       '<small>'+(c.role==='store'?'חנות':'קופה')+(c.hrs?' · '+c.hrs:'')+'</small></div>'+
+       '<button class="sub-act ghost" data-cover="'+k+'">בקשת החלפה</button></div>';
+  });
+  document.getElementById('meWeek').innerHTML=h;
+  document.getElementById('meNext').textContent=keys.length?cellLabel(keys[0]):'אין משמרות';
+  document.getElementById('meNextSub').textContent=keys.length?((cells[keys[0]].role==='store'?'חנות':'קופה')+(cells[keys[0]].hrs?' · '+cells[keys[0]].hrs:'')):'';
+  document.getElementById('meWeek').querySelectorAll('[data-cover]').forEach(function(b){
+    b.onclick=async function(){
+      var note=await askText('בקשת החלפה — '+cellLabel(b.getAttribute('data-cover')),'','סיבה (לא חובה)');
+      if(note===null)return;
+      try{var rr=await sb.rpc('emp_request_cover',{p_token:_meTok,p_week:_meWeek,p_cell:b.getAttribute('data-cover'),p_note:note||''});
+        if(rr.error)throw rr.error;toast('הבקשה נשלחה למנהל ✓');b.textContent='נשלח ✓';b.disabled=true;}
+      catch(e){toast('שליחת הבקשה נכשלה');}
+    };
+  });
+  renderMeAvail();
+}
+function renderMeAvail(){
+  var box=document.getElementById('meAvail');if(!box)return;
+  var h='<div style="font-size:12.5px;color:var(--muted);margin-bottom:8px">סמן/י את המשמרות שבהן תוכל/י לעבוד</div>';
+  DAYS.forEach(function(dn,di){
+    h+='<div style="display:flex;align-items:center;gap:6px;margin-bottom:6px">'+
+       '<span style="flex:0 0 58px;font-size:13px;font-weight:700">'+dn+'</span>';
+    SHIFTS.forEach(function(sh){
+      var k=di+'-'+sh.id,on=_meAvail[k]==='yes';
+      h+='<button class="sub-act'+(on?'':' ghost')+'" data-av="'+k+'" style="flex:1;padding:8px 4px">'+sh.name+'</button>';
+    });
+    h+='</div>';
+  });
+  box.innerHTML=h;
+  box.querySelectorAll('[data-av]').forEach(function(b){
+    b.onclick=function(){var k=b.getAttribute('data-av');
+      if(_meAvail[k]==='yes')delete _meAvail[k];else _meAvail[k]='yes';renderMeAvail();};
+  });
+}
 /* ---------- Availability inbox ---------- */
 var _subs=[];
 function subCount(d){var n=0;for(var k in (d||{})){if(d[k]==='yes')n++;}return n;}
@@ -1178,7 +1264,18 @@ function renderEmpList(){
     const it=document.createElement('div');it.className='emp-item';
     it.innerHTML='<div class="emp-avatar'+(emp.role==='store'?' store':'')+'">'+emp.name.slice(0,1)+'</div>'+
       '<div class="emp-info"><b>'+emp.name+'</b><small>'+(emp.phone||'ללא טלפון')+' · '+(emp.role==='store'?'חנות':'קופה')+'</small></div>'+
-      '<button class="emp-btn ea">📅 שיבוץ</button><button class="emp-btn av">🗓 זמינות</button><button class="emp-btn ed">✏️</button>';
+      '<button class="emp-btn ea">📅 שיבוץ</button><button class="emp-btn av">🗓 זמינות</button><button class="emp-btn lk">🔗</button><button class="emp-btn ed">✏️</button>';
+    it.querySelector('.lk').onclick=async()=>{
+      try{
+        var r=await sb.rpc('create_emp_token',{p_store:S.cur,p_emp:emp.id});
+        if(r.error)throw r.error;
+        var url=empLink(r.data);
+        var msg='היי '+emp.name+', זה הקישור האישי שלך למשמרות בסניף '+((loc()||{}).name||'')+':\n'+url;
+        if(navigator.share){navigator.share({title:'הקישור שלך למשמרות',text:msg}).catch(function(){});}
+        else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('הקישור הועתק');}
+        else{toast('הקישור נוצר');}
+      }catch(e){toast('יצירת הקישור נכשלה');}
+    };
     it.querySelector('.ea').onclick=()=>openEmpAssign(emp.id);
     it.querySelector('.av').onclick=()=>openAvail(emp.id);
     it.querySelector('.ed').onclick=()=>openEmpForm(emp.id);
@@ -1877,8 +1974,10 @@ async function initAuth(){
   const recovery=(location.hash+location.search).includes('type=recovery');
   const fillToken=new URLSearchParams(location.search).get('fill');
   const joinToken=new URLSearchParams(location.search).get('join');
+  const meToken=new URLSearchParams(location.search).get('me');
   if(typeof supabase==='undefined'){showAuthCard();aMsg('טעינת מערכת ההתחברות נכשלה. בדוק חיבור לאינטרנט ורענן.');return;}
   sb=supabase.createClient(SB_URL,SB_KEY);
+  if(meToken){document.getElementById('authScreen').style.display='none';initMe(meToken);return;}
   if(fillToken){document.getElementById('authScreen').style.display='none';initFill(fillToken);return;}
   if(joinToken){
     const {data:{session:_s}}=await sb.auth.getSession();
@@ -1899,6 +1998,13 @@ document.getElementById('btnLogin').onclick=async()=>{
   b.disabled=true;aMsg('');
   const {error}=await sb.auth.signInWithPassword({email,password:pass});
   b.disabled=false;if(error)aMsg(heErr(error));
+};
+document.getElementById('meSend').onclick=async function(){
+  var b=this;b.disabled=true;
+  try{var r=await sb.rpc('emp_submit_avail',{p_token:_meTok,p_week:_meNextWeek,p_data:_meAvail});
+    if(r.error)throw r.error;toast('הזמינות נשלחה ✓');}
+  catch(e){toast('השליחה נכשלה');}
+  b.disabled=false;
 };
 document.getElementById('btnJoin').onclick=async()=>{
   const b=document.getElementById('btnJoin');
