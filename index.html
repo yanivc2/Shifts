@@ -155,6 +155,7 @@ main{padding:12px}
 .emp-item{background:var(--card);border-radius:22px;padding:12px 14px;margin-bottom:10px;display:flex;align-items:center;gap:12px;box-shadow:0 1px 2px rgba(46,43,37,.12)}
 .emp-avatar{width:42px;height:42px;border-radius:999px;background:var(--line);color:var(--ink);display:flex;align-items:center;justify-content:center;font-weight:800;font-size:16px;flex:0 0 auto}
 .emp-avatar.store{background:#aebf92;color:#56633f}
+.av-cell.off{background:var(--morning-bg);color:var(--morning);border:1.5px solid var(--morning)}
 .emp-info{flex:1;min-width:0}
 .sub-row{background:var(--card);border:1px solid var(--line);border-radius:22px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px}
 .sub-row .si{flex:1;min-width:0}
@@ -567,6 +568,7 @@ main{padding:12px}
       <span><i style="background:#C4CBD5"></i>לא משובץ</span>
       <span><i style="background:var(--ok)"></i>השבוע</span>
       <span><i style="background:var(--brand)"></i>📌 קבוע</span>
+      <span><i style="background:var(--morning-bg);border:1.5px solid var(--morning)"></i>⊘ מבוטל השבוע</span>
     </div>
   </div>
   <div class="sheet-foot"><button class="btn btn-primary" onclick="openEmployees()">סיום</button></div>
@@ -1456,7 +1458,7 @@ function parseVcfText(txt){
 function openEmpAssign(empId){
   const emp=loc().employees.find(e=>e.id===empId);
   document.getElementById('eaTitle').textContent='שיבוץ · '+emp.name;
-  document.getElementById('eaWeek').textContent='שבוע '+fmt(dOf(0))+' – '+fmt(dOf(6))+' · לחיצה מחליפה: לא משובץ ← השבוע ← 📌 קבוע (כל שבוע)';
+  document.getElementById('eaWeek').textContent='שבוע '+fmt(dOf(0))+' – '+fmt(dOf(6))+' · לחיצה מחליפה: — לא משובץ ← ✓ השבוע ← 📌 קבוע ← ⊘ מבוטל השבוע בלבד';
   const g=document.getElementById('eaGrid');
   let html='<tr><th></th>'+SHIFTS.map(s=>'<th>'+s.ico+' '+s.name+'</th>').join('')+'</tr>';
   DAYS.forEach((dn,di)=>{
@@ -1464,8 +1466,8 @@ function openEmpAssign(empId){
     SHIFTS.forEach(sh=>{
       const asn=!!getCell(di,sh.id).find(c=>c.empId===empId);
       const fx=isFixed(empId,di,sh.id);
-      const cls=fx?'fx':asn?'yes':'';
-      const lbl=fx?'📌':asn?'✓':'—';
+      const cls=(fx&&asn)?'fx':(fx&&!asn)?'off':asn?'yes':'';
+      const lbl=(fx&&asn)?'📌':(fx&&!asn)?'⊘':asn?'✓':'—';
       html+='<td><button class="av-cell '+cls+'" data-d="'+di+'" data-s="'+sh.id+'">'+lbl+'</button></td>';
     });
     html+='</tr>';
@@ -1476,9 +1478,13 @@ function openEmpAssign(empId){
     let arr=getCell(di,sh);
     const asn=!!arr.find(c=>c.empId===empId);
     const fx=isFixed(empId,di,sh);
-    if(fx){ /* קבוע -> הסרה מלאה */
-      setFix(di,sh,getFix(di,sh).filter(f=>f.empId!==empId));
+    if(fx&&asn){ /* קבוע -> ביטול לשבוע הזה בלבד (התבנית נשמרת) */
       setCell(di,sh,arr.filter(c=>c.empId!==empId));
+      toast('בוטל לשבוע זה בלבד — יחזור בשבוע הבא');
+    }else if(fx&&!asn){ /* מבוטל השבוע -> ביטול הקביעות לגמרי */
+      setFix(di,sh,getFix(di,sh).filter(f=>f.empId!==empId));
+      setCell(di,sh,getCell(di,sh).filter(c=>c.empId!==empId));
+      toast('המשמרת הקבועה בוטלה לגמרי');
     }else if(asn){ /* השבוע -> קבוע */
       const a=arr.find(c=>c.empId===empId);
       setFix(di,sh,[...getFix(di,sh),{empId,role:a.role,hrs:a.hrs||''}]);
