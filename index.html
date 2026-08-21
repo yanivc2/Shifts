@@ -318,6 +318,12 @@ main{padding:12px}
   <div style="padding:16px 14px 40px">
     <div class="sec-t">השבוע שלי</div>
     <div id="meWeek"></div>
+    <div class="sec-t">בקשות</div>
+    <div style="display:flex;gap:6px;flex-wrap:wrap">
+      <button class="sub-act ghost" id="meVac" style="flex:1;min-width:46%">🏖️ בקשת חופשה</button>
+      <button class="sub-act ghost" id="meAdv" style="flex:1;min-width:46%">💸 בקשת מפרעה</button>
+    </div>
+    <div id="meReqs" style="margin-top:10px"></div>
     <div class="sec-t">הזמינות שלי לשבוע הבא</div>
     <div id="meAvail"></div>
     <button class="btn btn-primary" id="meSend" style="width:100%;margin-top:12px">שליחת זמינות</button>
@@ -709,20 +715,42 @@ async function initMe(tok){
     var c=cells[k];
     h+='<div class="sub-row"><div class="si"><b>'+cellLabel(k)+'</b>'+
        '<small>'+(c.role==='store'?'חנות':'קופה')+(c.hrs?' · '+c.hrs:'')+'</small></div>'+
-       '<button class="sub-act ghost" data-cover="'+k+'">בקשת החלפה</button></div>';
+       '<button class="sub-act ghost" data-cancel="'+k+'">ביטול</button>'+
+       '<button class="sub-act ghost" data-swap="'+k+'">החלפה</button></div>';
   });
   document.getElementById('meWeek').innerHTML=h;
   document.getElementById('meNext').textContent=keys.length?cellLabel(keys[0]):'אין משמרות';
   document.getElementById('meNextSub').textContent=keys.length?((cells[keys[0]].role==='store'?'חנות':'קופה')+(cells[keys[0]].hrs?' · '+cells[keys[0]].hrs:'')):'';
-  document.getElementById('meWeek').querySelectorAll('[data-cover]').forEach(function(b){
-    b.onclick=async function(){
-      var note=await askText('בקשת החלפה — '+cellLabel(b.getAttribute('data-cover')),'','סיבה (לא חובה)');
-      if(note===null)return;
-      try{var rr=await sb.rpc('emp_request_cover',{p_token:_meTok,p_week:_meWeek,p_cell:b.getAttribute('data-cover'),p_note:note||''});
-        if(rr.error)throw rr.error;toast('הבקשה נשלחה למנהל ✓');b.textContent='נשלח ✓';b.disabled=true;}
-      catch(e){toast('שליחת הבקשה נכשלה');}
-    };
+  var mw=document.getElementById('meWeek');
+  async function sendReq(kind,extra,btn,title){
+    var note=await askText(title,'','סיבה (לא חובה)');
+    if(note===null)return;
+    var args=Object.assign({p_token:_meTok,p_kind:kind,p_week:_meWeek,p_cell:null,
+      p_target_emp:null,p_from:null,p_to:null,p_amount:null,p_note:note||''},extra||{});
+    try{var rr=await sb.rpc('emp_submit_request',args);if(rr.error)throw rr.error;
+      toast('הבקשה נשלחה למנהל ✓');if(btn){btn.textContent='נשלח ✓';btn.disabled=true;}loadMyReqs();}
+    catch(e){toast('שליחת הבקשה נכשלה');}
+  }
+  mw.querySelectorAll('[data-cancel]').forEach(function(b){
+    b.onclick=function(){var k=b.getAttribute('data-cancel');
+      sendReq('cancel',{p_cell:k},b,'ביטול משמרת — '+cellLabel(k));};
   });
+  mw.querySelectorAll('[data-swap]').forEach(function(b){
+    b.onclick=function(){var k=b.getAttribute('data-swap');
+      sendReq('swap',{p_cell:k},b,'החלפה עם עובד אחר — '+cellLabel(k));};
+  });
+  document.getElementById('meVac').onclick=async function(){
+    var f=await askText('בקשת חופשה — מתאריך','','YYYY-MM-DD');if(!f)return;
+    var t2=await askText('בקשת חופשה — עד תאריך',f,'YYYY-MM-DD');if(!t2)return;
+    sendReq('vacation',{p_from:f,p_to:t2},null,'בקשת חופשה '+f+' עד '+t2);
+  };
+  document.getElementById('meAdv').onclick=async function(){
+    var amt=await askText('בקשת מפרעה — סכום בשקלים','','לדוגמה: 1500');if(!amt)return;
+    var n=parseFloat(String(amt).replace(/[^0-9.]/g,''));
+    if(!n||n<=0){toast('סכום לא תקין');return;}
+    sendReq('advance',{p_amount:n},null,'בקשת מפרעה '+n+' ₪');
+  };
+  loadMyReqs();
   renderMeAvail();
 }
 function renderMeAvail(){
@@ -771,9 +799,11 @@ function paintLock(){
   bar.style.display='flex';
   bar.className='lockbar'+(locked?' on':'');
   var when=new Date(p.published_at);
+  var drift=schedDiffers();
   document.getElementById('lockTxt').textContent=
-    (locked?'🔒 נעול · ':'📤 פורסם · ')+'גרסה '+p.version+' · '+
+    (drift?'⚠️ שונה אחרי הפרסום · ':(locked?'🔒 נעול · ':'📤 פורסם · '))+'גרסה '+p.version+' · '+
     when.toLocaleDateString('he-IL')+' '+when.toLocaleTimeString('he-IL',{hour:'2-digit',minute:'2-digit'});
+  if(drift)bar.className='lockbar on';
   document.getElementById('lockOpen').style.display=locked?'inline-block':'none';
 }
 function schedDiffers(){
@@ -827,23 +857,31 @@ async function loadCovers(){
   var box=document.getElementById('coverInbox');if(!box)return;
   box.innerHTML='';
   try{
-    var r=await sb.from('cover_requests').select('id,emp_name,week_key,cell,note,status,created_at')
+    var r=await sb.from('emp_requests')
+        .select('id,emp_id,emp_name,kind,week_key,cell,target_emp_name,date_from,date_to,amount,note,status,created_at')
         .eq('store_id',S.cur).eq('status','open').order('created_at',{ascending:false});
     if(r.error)throw r.error;
     _covers=r.data||[];
-  }catch(e){box.innerHTML='<p style="color:var(--no);padding:10px 2px">שגיאה בטעינת בקשות ההחלפה</p>';return;}
+  }catch(e){box.innerHTML='<p style="color:var(--no);padding:10px 2px">שגיאה בטעינת הבקשות</p>';return;}
   renderCovers();
+}
+function reqLine(c){
+  if(c.kind==='vacation')return 'חופשה · '+(c.date_from||'')+' → '+(c.date_to||'');
+  if(c.kind==='advance')return 'מפרעה · '+(c.amount||0)+' ₪';
+  if(c.kind==='swap')return 'החלפה עם עובד · '+(c.cell?cellLabel(c.cell):'');
+  if(c.kind==='cancel')return 'ביטול משמרת · '+(c.cell?cellLabel(c.cell):'');
+  return 'החלפה · '+(c.cell?cellLabel(c.cell):'');
 }
 function renderCovers(){
   var box=document.getElementById('coverInbox');if(!box)return;
   if(!_covers.length){box.innerHTML='';return;}
-  var h='<div class="sec-t">בקשות החלפה ('+_covers.length+')</div>';
+  var h='<div class="sec-t">בקשות ('+_covers.length+')</div>';
   _covers.forEach(function(c,ix){
-    var wk=(c.week_key===wkKey())?'השבוע':c.week_key;
+    var wk=c.week_key?((c.week_key===wkKey())?'השבוע':c.week_key):'';
     h+='<div class="sub-row" style="border-color:var(--morning)"><div class="si">'+
-       '<b>'+esc(c.emp_name||'עובד')+' · '+esc(cellLabel(c.cell))+'</b>'+
+       '<b>'+esc(c.emp_name||'עובד')+' · '+esc(reqLine(c))+'</b>'+
        '<small>'+esc(wk)+(c.note?' · '+esc(c.note):'')+'</small></div>'+
-       '<button class="sub-act" data-cvok="'+ix+'">טופל</button>'+
+       '<button class="sub-act" data-cvok="'+ix+'">אישור</button>'+
        '<button class="sub-act ghost" data-cvno="'+ix+'">דחייה</button></div>';
   });
   box.innerHTML=h;
@@ -856,11 +894,48 @@ function renderCovers(){
 }
 async function setCover(c,st){
   try{
-    var r=await sb.from('cover_requests').update({status:st}).eq('id',c.id);
+    var r=await sb.from('emp_requests').update({status:st,decided_at:new Date().toISOString()}).eq('id',c.id);
     if(r.error)throw r.error;
-    toast(st==='resolved'?'סומן כטופל ✓':'הבקשה נדחתה');
+    if(st==='approved')applyApproved(c);
+    toast(st==='approved'?'אושר ✓':'הבקשה נדחתה');
     loadCovers();
   }catch(e){toast('העדכון נכשל');}
+}
+/* an approval that changes the roster is written straight into the schedule */
+function applyApproved(c){
+  if(c.kind==='vacation'){
+    var emps=(loc()||{}).employees||[];
+    var e=emps.find(function(x){return x.id===c.emp_id;});
+    if(e){e.vac=(e.vac||[]).concat([{from:c.date_from,to:c.date_to}]);save({t:'emps'});}
+    toast('החופשה נרשמה לעובד ✓');
+    return;
+  }
+  if((c.kind==='cancel'||c.kind==='cover'||c.kind==='swap')&&c.week_key&&c.cell){
+    if(c.week_key!==wkKey()){toast('אושר — עבור לשבוע '+c.week_key+' כדי לראות את השינוי');return;}
+    var p=String(c.cell).split('-'),di=parseInt(p[0],10),sh=p[1];
+    var arr=getCell(di,sh).filter(function(a){return a.empId!==c.emp_id;});
+    setCell(di,sh,arr);
+    render();paintLock();
+  }
+}
+/* ---------- Employee: my own requests ---------- */
+var REQ_HE={cover:'החלפה',cancel:'ביטול משמרת',swap:'החלפה עם עובד',vacation:'חופשה',advance:'מפרעה'};
+var REQ_ST={open:'ממתין',approved:'אושר ✓',declined:'נדחה'};
+async function loadMyReqs(){
+  var box=document.getElementById('meReqs');if(!box)return;
+  try{var r=await sb.rpc('emp_my_requests',{p_token:_meTok});if(r.error)throw r.error;
+    var list=r.data||[];
+    if(!list.length){box.innerHTML='<p style="color:var(--muted);font-size:13px">אין בקשות.</p>';return;}
+    var h='';
+    list.forEach(function(q){
+      var d=q.kind==='vacation'?(q.date_from+' → '+q.date_to)
+           :q.kind==='advance'?(q.amount+' ₪')
+           :(q.cell?cellLabel(q.cell):'');
+      h+='<div class="sub-row"><div class="si"><b>'+(REQ_HE[q.kind]||q.kind)+(d?' · '+esc(String(d)):'')+'</b>'+
+         '<small>'+(REQ_ST[q.status]||q.status)+(q.note?' · '+esc(q.note):'')+'</small></div></div>';
+    });
+    box.innerHTML=h;
+  }catch(e){box.innerHTML='';}
 }
 /* ---------- Availability inbox ---------- */
 var _subs=[];
