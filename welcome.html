@@ -1,0 +1,173 @@
+<!DOCTYPE html><html lang="he" dir="rtl"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>ברוכים הבאים · אפליקציית המשמרות</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Assistant:wght@400;600;700&family=Suez+One&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#FBF7F3;--card:#fff;--ink:#2C2420;--muted:#8A7B70;--line:#EADFD5;
+--brand:#C2683F;--brand-soft:#FBEDE5;--ok:#5C8A5C;--ok-soft:#EAF3EA;--warn:#B8763A;--warn-soft:#FDF2E4;}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 Assistant,system-ui,sans-serif;
+padding:0 0 60px;overflow-x:hidden}
+.wrap{max-width:640px;margin:0 auto;padding:0 16px}
+.langbar{position:sticky;top:0;z-index:20;background:rgba(251,247,243,.97);backdrop-filter:blur(8px);
+border-bottom:1px solid var(--line);padding:10px 12px;display:flex;gap:6px;overflow-x:auto;justify-content:center}
+.lg{flex:0 0 auto;border:1.5px solid var(--line);background:#fff;color:var(--muted);border-radius:999px;
+padding:8px 15px;font:600 14px Assistant,sans-serif;cursor:pointer;transition:.15s}
+.lg.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.hero{text-align:center;padding:34px 8px 20px}
+.badge{display:inline-block;background:var(--brand-soft);color:var(--brand);border-radius:999px;
+padding:6px 15px;font-size:13.5px;font-weight:700;margin-bottom:14px}
+h1{font:400 33px/1.25 "Suez One",serif;margin:0 0 8px}
+.sub{margin:0 0 12px;color:var(--brand);font-weight:700;font-size:17px}
+.lead{margin:0;color:var(--muted);font-size:16px;max-width:430px;margin-inline:auto}
+.devsw{display:flex;gap:8px;margin:6px 0 14px}
+.dv{flex:1;border:1.5px solid var(--line);background:#fff;color:var(--muted);border-radius:14px;
+padding:13px;font:700 15px Assistant,sans-serif;cursor:pointer;transition:.15s}
+.dv.on{background:var(--brand);border-color:var(--brand);color:#fff}
+.card{background:var(--card);border:1px solid var(--line);border-radius:18px;padding:18px;margin:0 0 12px;
+box-shadow:0 1px 3px rgba(44,36,32,.04)}
+.card h2{font:400 20px/1.35 "Suez One",serif;margin:0 0 10px}
+.card p{margin:0 0 8px}
+.card p:last-child{margin-bottom:0}
+.step{position:relative;padding-top:22px}
+.num{position:absolute;top:-13px;inset-inline-start:18px;width:34px;height:34px;border-radius:50%;
+background:var(--brand);color:#fff;display:grid;place-items:center;font:700 17px Assistant,sans-serif;
+box-shadow:0 2px 6px rgba(194,104,63,.3)}
+ol{margin:10px 0 0;padding-inline-start:20px}
+ol li{margin-bottom:9px;padding-inline-start:3px}
+ol li::marker{color:var(--brand);font-weight:700}
+.sect{font:400 23px/1.3 "Suez One",serif;margin:26px 0 12px;padding-inline-start:2px}
+.note{background:var(--ok-soft);border-inline-start:3px solid var(--ok);border-radius:10px;
+padding:11px 13px;margin-top:12px;font-size:14.5px}
+.warn{background:var(--warn-soft);border-inline-start:3px solid var(--warn);border-radius:10px;
+padding:11px 13px;margin:12px 0;font-size:14.5px}
+.foot{text-align:center;color:var(--muted);font-size:13px;padding:26px 16px 0}
+[hidden]{display:none!important}
+@media(max-width:400px){h1{font-size:28px}.card{padding:16px}}
+</style></head><body>
+<div class="langbar"><button class="lg on" data-lg="he">עברית</button><button class="lg" data-lg="en">English</button><button class="lg" data-lg="ar">العربية</button><button class="lg" data-lg="th">ไทย</button><button class="lg" data-lg="fr">Français</button>
+</div>
+<div class="wrap">
+<div class="lb" data-lb="he" dir="rtl"><div class="hero"><span class="badge">✨ 3 דקות התקנה — פעם אחת בלבד</span><h1>ברוכים הבאים</h1><p class="sub">האפליקציה של המשמרות שלך</p><p class="lead">כאן רואים מתי עובדים, מבקשים חופש או החלפה, ומדווחים שעות. הכל מהטלפון.</p></div>
+<div class="devsw"><button class="dv on" data-dev="ios">📱 iPhone</button><button class="dv" data-dev="and">🤖 Android</button></div>
+<div class="card step dev-ios"><span class="num">1</span><h2>התקנה על אייפון</h2><ol><li>פתיחת הקישור שקיבלת בוואטסאפ, בדפדפן ספארי</li><li>לחיצה על כפתור השיתוף בתחתית המסך — ריבוע עם חץ כלפי מעלה</li><li>גלילה ברשימה ובחירה באפשרות הוספה למסך הבית</li><li>לחיצה על הוספה בפינה העליונה</li><li>פתיחת האפליקציה מהאייקון החדש שנוצר במסך הבית</li></ol></div>
+<div class="card step dev-and" hidden><span class="num">1</span><h2>התקנה על אנדרואיד</h2><ol><li>פתיחת הקישור שקיבלת בוואטסאפ, בדפדפן כרום</li><li>לחיצה על שלוש הנקודות בפינה העליונה</li><li>בחירה באפשרות התקנת אפליקציה או הוספה למסך הבית</li><li>אישור ההתקנה</li><li>פתיחת האפליקציה מהאייקון החדש שנוצר במסך הבית</li></ol></div>
+<div class="warn"><b>למה חייבים להתקין</b><br>בלי התקנה לא מקבלים התראות, וצריך לחפש את הקישור בוואטסאפ בכל פעם.</div>
+<div class="card step"><span class="num">2</span><h2>🔔 הפעלת התראות</h2><ol><li>פתיחת האפליקציה מהאייקון שבמסך הבית</li><li>לחיצה על הכפתור להפעלת התראות</li><li>מתן אישור בחלון שהטלפון מציג</li></ol><div class="note"><b>מה מקבלים בהתראה</b><br>כשהמנהל מאשר או דוחה בקשה, וכשיש משימה חדשה.</div><div class="warn"><b>אם לא מגיעות התראות</b><br>יש לוודא שהאפליקציה נפתחה מהאייקון במסך הבית, ולא מקישור בוואטסאפ.</div></div>
+<div class="card step"><span class="num">3</span><h2>🌐 בחירת שפה</h2><p>בראש המסך יש כפתורי שפה. בחירה בשפה שלך תציג את הכל בשפה הזו. הבחירה נשמרת.</p></div>
+<h3 class="sect">המשמרות שלי</h3><div class="card"><p>בראש המסך מופיעה המשמרת הבאה, ומתחתיה כל המשמרות של השבוע לפי הסדר.</p><div class="note">כל עובד רואה רק את המשמרות של עצמו.</div></div>
+<div class="card"><h2>❌ ביטול משמרת</h2><ol><li>ליד כל משמרת יש כפתור ביטול</li><li>לחיצה על הכפתור וכתיבת הסיבה</li><li>הבקשה נשלחת למנהל</li></ol><div class="warn">המשמרת מתבטלת רק לאחר אישור המנהל. עד אז השיבוץ בתוקף.</div></div>
+<div class="card"><h2>🔁 החלפה עם עובד אחר</h2><ol><li>לחיצה על הכפתור להחלפת משמרת</li><li>בחירת העובד שיחליף אותך מתוך הרשימה</li><li>כתיבת סיבה, אם רוצים</li><li>שליחת ההודעה שנפתחת בוואטסאפ</li></ol><div class="warn">ההחלפה נכנסת לתוקף רק לאחר שהעובד השני אישר וגם המנהל אישר.</div></div>
+<div class="card"><h2>✋ בקשת החלפה שנשלחה אליך</h2><p>בקשה של חבר להחליף איתך מופיעה במסך, ואפשר לאשר אותה. לאחר מכן ממתינים לאישור המנהל.</p></div>
+<div class="card"><h2>🏖️ בקשת חופשה</h2><ol><li>לחיצה על הכפתור לבקשת חופשה</li><li>בחירת תאריך התחלה מלוח השנה</li><li>בחירת תאריך סיום</li></ol></div>
+<div class="card"><h2>💸 בקשת מקדמה על המשכורת</h2><ol><li>לחיצה על הכפתור לבקשת מקדמה</li><li>הזנת הסכום בשקלים</li><li>כתיבת סיבה, אם רוצים</li></ol><div class="note">כל הבקשות והסטטוס שלהן מופיעים במסך. אין צורך לשאול.</div></div>
+<div class="card"><h2>📅 זמינות לשבוע הבא</h2><ol><li>גלילה למטה לאזור הזמינות</li><li>סימון כל המשמרות שאפשר לעבוד בהן</li><li>לחיצה על הכפתור לשליחת הזמינות</li></ol><div class="note">אפשר לשלוח שוב ולשנות. השליחה האחרונה היא הקובעת.</div></div>
+<div class="card"><h2>🕐 דיווח שעות עבודה</h2><p>אם לא נרשמה כניסה בשעון הנוכחות, מדווחים כאן כדי שהשעות לא ילכו לאיבוד.</p><ol><li>לחיצה על הכפתור לדיווח יום עבודה</li><li>בחירת התאריך מלוח השנה</li><li>בחירת שעת הכניסה ושעת היציאה</li></ol><div class="note">אפשר לדווח על כמה ימים, כל יום בנפרד.</div></div>
+<div class="card"><h2>✅ המשימות שלי</h2><ol><li>בסיום משימה — לחיצה על הכפתור בוצע</li><li>אם נדרש צילום, מוסיפים קישור לתמונה</li></ol><div class="note">השעה המדויקת נשמרת. זו ההוכחה שהמשימה בוצעה.</div></div>
+<div class="card"><h2>📚 נהלים והדרכות</h2><p>כאן נמצאים המסמכים וסרטוני ההדרכה. לחיצה על פתיחה מציגה אותם.</p></div>
+<h3 class="sect">בעיות נפוצות</h3><div class="card"><b>לא מצליח להיכנס</b><p>יש לפתוח את האייקון שבמסך הבית. אם הקישור אבד, אפשר לבקש מהמנהל קישור חדש.</p></div><div class="card"><b>הקישור הוא אישי</b><p>הקישור מזהה אותך. אין להעביר אותו לאף אחד — מי שפותח אותו רואה את המשמרות שלך.</p></div><div class="card qa"><b>שאלות</b><p>לכל שאלה אפשר לפנות למנהל.</p></div></div>
+<div class="lb" data-lb="en" dir="ltr" hidden><div class="hero"><span class="badge">✨ 3 minute setup — just once</span><h1>Welcome</h1><p class="sub">Your shifts app</p><p class="lead">Here you can see when you're working, request time off or a replacement, and report hours. All from your phone.</p></div>
+<div class="devsw"><button class="dv on" data-dev="ios">📱 iPhone</button><button class="dv" data-dev="and">🤖 Android</button></div>
+<div class="card step dev-ios"><span class="num">1</span><h2>Installation on iPhone</h2><ol><li>Opening the link you received on WhatsApp in the Safari browser</li><li>Clicking the share button at the bottom of the screen — a square with an upward arrow</li><li>Scroll through the list and select Add to Home Screen</li><li>Clicking Add in the top corner</li><li>Opening the app from the newly created icon on the home screen</li></ol></div>
+<div class="card step dev-and" hidden><span class="num">1</span><h2>Installation on Android</h2><ol><li>Opening the link you received on WhatsApp, in the Chrome browser</li><li>Clicking on the three dots in the top corner</li><li>Choosing to install an app or add to home screen</li><li>Installation confirmation</li><li>Opening the app from the newly created icon on the home screen</li></ol></div>
+<div class="warn"><b>Why must you install</b><br>Without installation, you don't receive notifications, and you have to look for the link in WhatsApp each time.</div>
+<div class="card step"><span class="num">2</span><h2>🔔 Enabling notifications</h2><ol><li>Opening the app from the icon on the home screen</li><li>Clicking the button to activate notifications</li><li>Giving permission in the window that the phone displays</li></ol><div class="note"><b>What do you get in the notification?</b><br>When the manager approves or rejects a request, and when there is a new task.</div><div class="warn"><b>If notifications are not coming</b><br>Make sure the app was opened from the icon on the home screen, and not from a link in WhatsApp.</div></div>
+<div class="card step"><span class="num">3</span><h2>🌐 Language selection</h2><p>There are language buttons at the top of the screen. Selecting your language will display everything in that language. The selection is saved.</p></div>
+<h3 class="sect">My shifts</h3><div class="card"><p>The next shift appears at the top of the screen, and below it all the shifts for the week in order.</p><div class="note">Each employee only sees their own shifts.</div></div>
+<div class="card"><h2>❌ Cancel a shift</h2><ol><li>There is a cancel button next to each shift.</li><li>Clicking the button and writing the reason</li><li>The request is sent to the administrator.</li></ol><div class="warn">The shift is canceled only after approval from the manager. Until then, the assignment is valid.</div></div>
+<div class="card"><h2>🔁 Exchange with another employee</h2><ol><li>Pressing the button to change shifts</li><li>Selecting the employee who will replace you from the list</li><li>Write a reason, if you want.</li><li>Sending the message that opens on WhatsApp</li></ol><div class="warn">The replacement only takes effect after the other employee has approved and the manager has also approved.</div></div>
+<div class="card"><h2>✋ Replacement request sent to you</h2><p>A friend's request to swap with you appears on the screen, and you can approve it. Then you wait for the administrator's approval.</p></div>
+<div class="card"><h2>🏖️ Vacation request</h2><ol><li>Clicking the button to request a vacation</li><li>Select a start date from the calendar</li><li>Choose an end date</li></ol></div>
+<div class="card"><h2>💸 Request for advance payment on salary</h2><ol><li>Clicking the button to request an advance</li><li>Entering the amount in shekels</li><li>Write a reason, if you want.</li></ol><div class="note">All requests and their status appear on the screen. No need to ask.</div></div>
+<div class="card"><h2>📅 Availability for next week</h2><ol><li>Scroll down to the availability area</li><li>Mark all shifts available for work</li><li>Clicking the button to send availability</li></ol><div class="note">You can resubmit and change it. The last submission is the final one.</div></div>
+<div class="card"><h2>🕐 Working hours reporting</h2><p>If no entry was recorded on the time clock, report it here so that the hours are not lost.</p><ol><li>Clicking the button to report a workday</li><li>Selecting the date from the calendar</li><li>Choosing your check-in and check-out time</li></ol><div class="note">You can report on several days, each day separately.</div></div>
+<div class="card"><h2>✅ My tasks</h2><ol><li>When a task is completed — clicking the Done button</li><li>If a photo is required, add a link to the image.</li></ol><div class="note">The exact time is preserved. This is proof that the task was completed.</div></div>
+<div class="card"><h2>📚 Procedures and training</h2><p>This is where the documents and training videos are located. Clicking Open displays them.</p></div>
+<h3 class="sect">Common problems</h3><div class="card"><b>Unable to log in</b><p>Open the icon on the home screen. If the link is lost, you can ask the administrator for a new link.</p></div><div class="card"><b>The link is personal.</b><p>The link identifies you. Do not forward it to anyone — anyone who opens it will see your shifts.</p></div><div class="card qa"><b>Questions</b><p>For any questions, you can contact the manager.</p></div></div>
+<div class="lb" data-lb="ar" dir="rtl" hidden><div class="hero"><span class="badge">✨ إعداد لمدة 3 دقائق فقط — لمرة واحدة فقط</span><h1>مرحباً</h1><p class="sub">تطبيق المناوبات الخاص بك</p><p class="lead">هنا يمكنك معرفة أوقات عملك، وطلب إجازة أو بديل، والإبلاغ عن ساعات العمل. كل ذلك من هاتفك.</p></div>
+<div class="devsw"><button class="dv on" data-dev="ios">📱 iPhone</button><button class="dv" data-dev="and">🤖 Android</button></div>
+<div class="card step dev-ios"><span class="num">1</span><h2>التثبيت على جهاز iPhone</h2><ol><li>افتح الرابط الذي تلقيته على واتساب في متصفح سفاري</li><li>انقر على زر المشاركة أسفل الشاشة - وهو عبارة عن مربع بداخله سهم متجه للأعلى</li><li>تصفح القائمة وحدد "إضافة إلى الشاشة الرئيسية"</li><li>انقر على "إضافة" في الزاوية العلوية</li><li>فتح التطبيق من الأيقونة التي تم إنشاؤها حديثًا على الشاشة الرئيسية</li></ol></div>
+<div class="card step dev-and" hidden><span class="num">1</span><h2>التثبيت على نظام أندرويد</h2><ol><li>افتح الرابط الذي تلقيته على واتساب، في متصفح كروم</li><li>انقر على النقاط الثلاث في الزاوية العلوية</li><li>اختيار تثبيت تطبيق أو إضافته إلى الشاشة الرئيسية</li><li>تأكيد التثبيت</li><li>فتح التطبيق من الأيقونة التي تم إنشاؤها حديثًا على الشاشة الرئيسية</li></ol></div>
+<div class="warn"><b>لماذا يجب عليك التثبيت؟</b><br>بدون تثبيت التطبيق، لن تتلقى الإشعارات، وسيتعين عليك البحث عن الرابط في واتساب في كل مرة.</div>
+<div class="card step"><span class="num">2</span><h2>🔔 تفعيل الإشعارات</h2><ol><li>فتح التطبيق من الأيقونة الموجودة على الشاشة الرئيسية</li><li>انقر على الزر لتفعيل الإشعارات</li><li>منح الإذن في النافذة التي يعرضها الهاتف</li></ol><div class="note"><b>ماذا يظهر لك في الإشعار؟</b><br>عندما يوافق المدير على طلب أو يرفضه، وعندما تكون هناك مهمة جديدة.</div><div class="warn"><b>إذا لم تصل الإشعارات</b><br>تأكد من فتح التطبيق من خلال الأيقونة الموجودة على الشاشة الرئيسية، وليس من خلال رابط في واتساب.</div></div>
+<div class="card step"><span class="num">3</span><h2>🌐 اختيار اللغة</h2><p>توجد أزرار اللغة أعلى الشاشة. باختيار لغتك، سيتم عرض كل شيء بتلك اللغة. يتم حفظ الاختيار.</p></div>
+<h3 class="sect">نوبات عملي</h3><div class="card"><p>تظهر المناوبة التالية في أعلى الشاشة، وتحتها جميع مناوبات الأسبوع بالترتيب.</p><div class="note">كل موظف يرى فقط نوبات عمله الخاصة.</div></div>
+<div class="card"><h2>❌ إلغاء وردية</h2><ol><li>يوجد زر إلغاء بجوار كل وردية.</li><li>النقر على الزر وكتابة السبب</li><li>يتم إرسال الطلب إلى المسؤول.</li></ol><div class="warn">لا يتم إلغاء المناوبة إلا بعد موافقة المدير. وحتى ذلك الحين، يبقى التكليف ساري المفعول.</div></div>
+<div class="card"><h2>🔁 تبادل الحديث مع موظف آخر</h2><ol><li>الضغط على الزر لتغيير الورديات</li><li>اختيار الموظف الذي سيحل محلك من القائمة</li><li>اكتب سبباً، إن شئت.</li><li>إرسال الرسالة التي تفتح على واتساب</li></ol><div class="warn">لا يسري مفعول الاستبدال إلا بعد موافقة الموظف الآخر وموافقة المدير أيضاً.</div></div>
+<div class="card"><h2>✋ تم إرسال طلب استبدال إليك</h2><p>يظهر طلب صديق للتبادل معك على الشاشة، ويمكنك الموافقة عليه. ثم تنتظر موافقة المسؤول.</p></div>
+<div class="card"><h2>🏖️ طلب إجازة</h2><ol><li>انقر على الزر لطلب إجازة</li><li>اختر تاريخ البدء من التقويم</li><li>اختر تاريخ انتهاء</li></ol></div>
+<div class="card"><h2>💸 طلب صرف سلفة على الراتب</h2><ol><li>انقر على الزر لطلب سلفة</li><li>إدخال المبلغ بالشيكل</li><li>اكتب سبباً، إن شئت.</li></ol><div class="note">تظهر جميع الطلبات وحالتها على الشاشة. لا داعي للسؤال.</div></div>
+<div class="card"><h2>📅 التوافر للأسبوع القادم</h2><ol><li>انتقل إلى أسفل الصفحة للاطلاع على قسم التوافر</li><li>حدد جميع الورديات المتاحة للعمل</li><li>انقر على الزر لإرسال معلومات التوافر</li></ol><div class="note">يمكنك إعادة إرسال الطلب وتعديله. آخر طلب هو الطلب النهائي.</div></div>
+<div class="card"><h2>🕐 الإبلاغ عن ساعات العمل</h2><p>إذا لم يتم تسجيل أي إدخال على ساعة الدوام، فأبلغ عن ذلك هنا حتى لا تضيع الساعات.</p><ol><li>انقر على الزر للإبلاغ عن يوم عمل</li><li>اختيار التاريخ من التقويم</li><li>اختيار وقت تسجيل الوصول والمغادرة</li></ol><div class="note">يمكنك إعداد التقارير لعدة أيام، كل يوم على حدة.</div></div>
+<div class="card"><h2>✅ مهامي</h2><ol><li>عند إتمام المهمة - انقر فوق زر "تم".</li><li>إذا كانت الصورة مطلوبة، فأضف رابطًا للصورة.</li></ol><div class="note">تم حفظ الوقت بدقة. وهذا دليل على إتمام المهمة.</div></div>
+<div class="card"><h2>📚 الإجراءات والتدريب</h2><p>هنا توجد المستندات ومقاطع الفيديو التدريبية. انقر على "فتح" لعرضها.</p></div>
+<h3 class="sect">المشاكل الشائعة</h3><div class="card"><b>تعذر تسجيل الدخول</b><p>افتح الأيقونة الموجودة على الشاشة الرئيسية. إذا لم تجد الرابط، يمكنك طلب رابط جديد من المسؤول.</p></div><div class="card"><b>الرابط شخصي.</b><p>هذا الرابط يكشف هويتك. لا تقم بإعادة توجيهه لأي شخص، فكل من يفتحه سيرى مناوباتك.</p></div><div class="card qa"><b>أسئلة</b><p>لأي استفسار، يمكنك الاتصال بالمدير.</p></div></div>
+<div class="lb" data-lb="th" dir="ltr" hidden><div class="hero"><span class="badge">✨ ใช้เวลาติดตั้งเพียง 3 นาที — เพียงครั้งเดียว</span><h1>ยินดีต้อนรับ</h1><p class="sub">แอปกะงานของคุณ</p><p class="lead">ที่นี่คุณสามารถตรวจสอบเวลาทำงาน ขอลาหยุด หรือขอคนมาทำงานแทน และรายงานชั่วโมงทำงานได้ทั้งหมดจากโทรศัพท์ของคุณ</p></div>
+<div class="devsw"><button class="dv on" data-dev="ios">📱 iPhone</button><button class="dv" data-dev="and">🤖 Android</button></div>
+<div class="card step dev-ios"><span class="num">1</span><h2>การติดตั้งบน iPhone</h2><ol><li>เปิดลิงก์ที่คุณได้รับทาง WhatsApp ในเบราว์เซอร์ Safari</li><li>คลิกปุ่มแชร์ที่ด้านล่างของหน้าจอ ซึ่งเป็นรูปสี่เหลี่ยมที่มีลูกศรชี้ขึ้น</li><li>เลื่อนดูรายการแล้วเลือก "เพิ่มไปยังหน้าจอหลัก"</li><li>คลิกที่ปุ่ม "เพิ่ม" ที่มุมบน</li><li>การเปิดแอปจากไอคอนที่สร้างขึ้นใหม่บนหน้าจอหลัก</li></ol></div>
+<div class="card step dev-and" hidden><span class="num">1</span><h2>การติดตั้งบน Android</h2><ol><li>เปิดลิงก์ที่คุณได้รับทาง WhatsApp ในเบราว์เซอร์ Chrome</li><li>คลิกที่จุดสามจุดที่มุมบน</li><li>การเลือกติดตั้งแอปหรือเพิ่มไปยังหน้าจอหลัก</li><li>การยืนยันการติดตั้ง</li><li>การเปิดแอปจากไอคอนที่สร้างขึ้นใหม่บนหน้าจอหลัก</li></ol></div>
+<div class="warn"><b>เหตุใดคุณจึงต้องติดตั้ง</b><br>หากไม่ติดตั้ง คุณจะไม่ได้รับการแจ้งเตือน และต้องค้นหาลิงก์ใน WhatsApp ทุกครั้ง</div>
+<div class="card step"><span class="num">2</span><h2>🔔 การเปิดใช้งานการแจ้งเตือน</h2><ol><li>การเปิดแอปจากไอคอนบนหน้าจอหลัก</li><li>คลิกปุ่มเพื่อเปิดใช้งานการแจ้งเตือน</li><li>ให้สิทธิ์อนุญาตในหน้าต่างที่โทรศัพท์แสดงขึ้น</li></ol><div class="note"><b>คุณได้รับการแจ้งเตือนอะไรบ้าง?</b><br>เมื่อผู้จัดการอนุมัติหรือปฏิเสธคำขอ และเมื่อมีงานใหม่เข้ามา</div><div class="warn"><b>หากไม่ได้รับการแจ้งเตือน</b><br>โปรดตรวจสอบให้แน่ใจว่าได้เปิดแอปจากไอคอนบนหน้าจอหลัก ไม่ใช่จากลิงก์ใน WhatsApp</div></div>
+<div class="card step"><span class="num">3</span><h2>🌐 การเลือกภาษา</h2><p>มีปุ่มเลือกภาษาอยู่ด้านบนของหน้าจอ การเลือกภาษาจะแสดงผลทุกอย่างในภาษานั้น การเลือกจะถูกบันทึกไว้</p></div>
+<h3 class="sect">กะของฉัน</h3><div class="card"><p>ตารางกะทำงานถัดไปจะปรากฏที่ด้านบนของหน้าจอ และด้านล่างจะเป็นตารางกะทำงานทั้งหมดประจำสัปดาห์เรียงตามลำดับ</p><div class="note">พนักงานแต่ละคนจะเห็นเฉพาะตารางกะทำงานของตนเองเท่านั้น</div></div>
+<div class="card"><h2>❌ การยกเลิกกะทำงาน</h2><ol><li>จะมีปุ่มยกเลิกอยู่ข้างๆ แต่ละกะการทำงาน</li><li>คลิกปุ่มและเขียนเหตุผล</li><li>คำขอถูกส่งไปยังผู้ดูแลระบบแล้ว</li></ol><div class="warn">การยกเลิกกะงานจะเกิดขึ้นได้ก็ต่อเมื่อได้รับอนุมัติจากผู้จัดการเท่านั้น จนกว่าจะได้รับอนุมัติ การมอบหมายงานนั้นยังคงมีผลใช้ได้</div></div>
+<div class="card"><h2>🔁 แลกเปลี่ยนกับพนักงานคนอื่น</h2><ol><li>กดปุ่มเพื่อเปลี่ยนกะ</li><li>เลือกพนักงานที่จะมาทำงานแทนคุณจากรายชื่อ</li><li>ถ้าต้องการ คุณสามารถเขียนเหตุผลลงไปได้</li><li>ส่งข้อความที่เปิดใน WhatsApp</li></ol><div class="warn">การเปลี่ยนตัวจะมีผลก็ต่อเมื่อพนักงานคนอื่นอนุมัติแล้ว และผู้จัดการก็อนุมัติแล้วเช่นกัน</div></div>
+<div class="card"><h2>✋ คำขอเปลี่ยนกะส่งถึงคุณแล้ว</h2><p>คำขอแลกกะจากเพื่อนจะปรากฏบนหน้าจอ และคุณสามารถอนุมัติได้ จากนั้นรอการอนุมัติจากผู้ดูแลระบบ</p></div>
+<div class="card"><h2>🏖️ คำขอลาพักร้อน</h2><ol><li>คลิกปุ่มเพื่อขอลาพักร้อน</li><li>เลือกวันที่เริ่มต้นจากปฏิทิน</li><li>เลือกวันสิ้นสุด</li></ol></div>
+<div class="card"><h2>💸 ขอเบิกเงินเดือนล่วงหน้า</h2><ol><li>คลิกปุ่มเพื่อขอเงินล่วงหน้า</li><li>ป้อนจำนวนเงินเป็นเชเกล</li><li>ถ้าต้องการ คุณสามารถเขียนเหตุผลลงไปได้</li></ol><div class="note">คำขอทั้งหมดและสถานะจะปรากฏบนหน้าจอ ไม่จำเป็นต้องสอบถามเพิ่มเติม</div></div>
+<div class="card"><h2>📅 พร้อมให้บริการในสัปดาห์หน้า</h2><ol><li>เลื่อนลงไปที่ส่วนแสดงความพร้อมให้บริการ</li><li>ทำเครื่องหมายในช่องกะงานที่ว่างทั้งหมด</li><li>คลิกปุ่มเพื่อส่งข้อมูลความพร้อมให้บริการ</li></ol><div class="note">คุณสามารถส่งใหม่และแก้ไขได้ การส่งครั้งสุดท้ายถือเป็นครั้งสุดท้าย</div></div>
+<div class="card"><h2>🕐 การรายงานชั่วโมงทำงาน</h2><p>หากไม่มีการบันทึกเวลาลงในเครื่องบันทึกเวลา ให้รายงานที่นี่เพื่อไม่ให้เวลาทำงานสูญหาย</p><ol><li>คลิกปุ่มเพื่อรายงานวันทำงาน</li><li>เลือกวันที่จากปฏิทิน</li><li>การเลือกเวลาเช็คอินและเช็คเอาท์ของคุณ</li></ol><div class="note">คุณสามารถรายงานข้อมูลได้หลายวัน โดยรายงานแต่ละวันแยกกัน</div></div>
+<div class="card"><h2>✅ งานของฉัน</h2><ol><li>เมื่อภารกิจเสร็จสมบูรณ์แล้ว ให้คลิกปุ่ม "เสร็จสิ้น"</li><li>ถ้าจำเป็นต้องใช้รูปภาพ โปรดเพิ่มลิงก์ไปยังรูปภาพนั้น</li></ol><div class="note">เวลาที่แน่นอนถูกบันทึกไว้ นี่เป็นหลักฐานว่างานเสร็จสมบูรณ์แล้ว</div></div>
+<div class="card"><h2>📚 ขั้นตอนและฝึกอบรม</h2><p>เอกสารและวิดีโอฝึกอบรมอยู่ที่นี่ คลิก "เปิด" เพื่อแสดงผล</p></div>
+<h3 class="sect">ปัญหาทั่วไป</h3><div class="card"><b>ไม่สามารถเข้าสู่ระบบได้</b><p>เปิดไอคอนบนหน้าจอหลัก หากลิงก์หายไป คุณสามารถขอลิงก์ใหม่จากผู้ดูแลระบบได้</p></div><div class="card"><b>ลิงก์นี้เป็นลิงก์ส่วนตัว</b><p>ลิงก์นี้ระบุตัวตนของคุณ ห้ามส่งต่อให้ใคร เพราะใครก็ตามที่เปิดลิงก์นี้จะเห็นตารางการทำงานของคุณ</p></div><div class="card qa"><b>คำถาม</b><p>หากมีข้อสงสัยใด ๆ สามารถติดต่อผู้จัดการได้</p></div></div>
+<div class="lb" data-lb="fr" dir="ltr" hidden><div class="hero"><span class="badge">✨ Installation en 3 minutes — une seule fois</span><h1>Bienvenue</h1><p class="sub">Votre application de gestion des horaires</p><p class="lead">Ici, vous pouvez consulter vos horaires de travail, demander un congé ou un remplacement, et déclarer vos heures travaillées. Le tout depuis votre téléphone.</p></div>
+<div class="devsw"><button class="dv on" data-dev="ios">📱 iPhone</button><button class="dv" data-dev="and">🤖 Android</button></div>
+<div class="card step dev-ios"><span class="num">1</span><h2>Installation sur iPhone</h2><ol><li>Ouvrir le lien que vous avez reçu sur WhatsApp dans le navigateur Safari</li><li>Cliquer sur le bouton de partage en bas de l'écran — un carré avec une flèche pointant vers le haut</li><li>Faites défiler la liste et sélectionnez Ajouter à l'écran d'accueil</li><li>Cliquer sur Ajouter dans le coin supérieur</li><li>Ouvrir l'application à partir de la nouvelle icône créée sur l'écran d'accueil</li></ol></div>
+<div class="card step dev-and" hidden><span class="num">1</span><h2>Installation sur Android</h2><ol><li>Ouvrir le lien que vous avez reçu sur WhatsApp, dans le navigateur Chrome</li><li>Cliquer sur les trois points dans le coin supérieur</li><li>Choisir d'installer une application ou de l'ajouter à l'écran d'accueil</li><li>Confirmation d'installation</li><li>Ouvrir l'application à partir de la nouvelle icône créée sur l'écran d'accueil</li></ol></div>
+<div class="warn"><b>Pourquoi devez-vous installer</b><br>Sans installation, vous ne recevez pas de notifications et vous devez rechercher le lien dans WhatsApp à chaque fois.</div>
+<div class="card step"><span class="num">2</span><h2>🔔 Activation des notifications</h2><ol><li>Ouvrir l'application à partir de l'icône sur l'écran d'accueil</li><li>Cliquer sur le bouton pour activer les notifications</li><li>Autorisation dans la fenêtre affichée par le téléphone</li></ol><div class="note"><b>Que recevez-vous dans la notification ?</b><br>Lorsque le responsable approuve ou rejette une demande, et lorsqu'une nouvelle tâche est ajoutée.</div><div class="warn"><b>Si vous ne recevez pas de notifications</b><br>Assurez-vous que l'application a été ouverte à partir de l'icône sur l'écran d'accueil, et non à partir d'un lien dans WhatsApp.</div></div>
+<div class="card step"><span class="num">3</span><h2>🌐 Sélection de la langue</h2><p>Des boutons de langue sont disponibles en haut de l'écran. En sélectionnant votre langue, tout s'affichera dans cette langue. Votre choix sera enregistré.</p></div>
+<h3 class="sect">Mes horaires</h3><div class="card"><p>Le prochain horaire de travail apparaît en haut de l'écran, et en dessous, tous les horaires de la semaine, dans l'ordre.</p><div class="note">Chaque employé ne voit que ses propres horaires de travail.</div></div>
+<div class="card"><h2>❌ Annulation d'un quart de travail</h2><ol><li>Il y a un bouton Annuler à côté de chaque créneau horaire.</li><li>Cliquer sur le bouton et écrire la raison</li><li>La requête est envoyée à l'administrateur.</li></ol><div class="warn">Le service n'est annulé qu'après accord du responsable. Jusque-là, la mission reste valable.</div></div>
+<div class="card"><h2>🔁 Échange avec un autre employé</h2><ol><li>Appuyer sur le bouton pour changer de quart de travail</li><li>Sélectionner l'employé qui vous remplacera dans la liste</li><li>Si vous le souhaitez, veuillez indiquer une raison.</li><li>Envoi du message qui s'ouvre sur WhatsApp</li></ol><div class="warn">Le remplacement ne prendra effet qu'après l'approbation de l'autre employé et celle du responsable.</div></div>
+<div class="card"><h2>✋ Demande de remplacement envoyée</h2><p>La demande d'échange d'un ami s'affiche à l'écran ; vous pouvez l'accepter. Ensuite, vous devez attendre la validation de l'administrateur.</p></div>
+<div class="card"><h2>🏖️ Demande de vacances</h2><ol><li>Cliquer sur le bouton pour demander des vacances</li><li>Sélectionnez une date de début dans le calendrier.</li><li>Choisissez une date de fin</li></ol></div>
+<div class="card"><h2>💸 Demande d'avance sur salaire</h2><ol><li>Cliquer sur le bouton pour demander une avance</li><li>Saisie du montant en shekels</li><li>Si vous le souhaitez, veuillez indiquer une raison.</li></ol><div class="note">Toutes les demandes et leur statut apparaissent à l'écran. Inutile de poser la question.</div></div>
+<div class="card"><h2>📅 Disponibilités pour la semaine prochaine</h2><ol><li>Faites défiler vers le bas jusqu'à la zone de disponibilité</li><li>Indiquez tous les créneaux horaires disponibles pour travailler.</li><li>Cliquer sur le bouton pour envoyer les disponibilités</li></ol><div class="note">Vous pouvez la soumettre à nouveau et la modifier. La dernière soumission est la version définitive.</div></div>
+<div class="card"><h2>🕐 Déclaration des heures de travail</h2><p>Si aucune entrée n'a été enregistrée sur la pointeuse, veuillez le signaler ici afin que les heures ne soient pas perdues.</p><ol><li>Cliquer sur le bouton pour signaler une journée de travail</li><li>Sélectionner la date dans le calendrier</li><li>Choisir votre heure d'arrivée et de départ</li></ol><div class="note">Vous pouvez soumettre un rapport pour plusieurs jours, chaque jour séparément.</div></div>
+<div class="card"><h2>✅ Mes tâches</h2><ol><li>Une fois la tâche terminée, cliquez sur le bouton Terminé.</li><li>Si une photo est requise, ajoutez un lien vers l'image.</li></ol><div class="note">L'heure exacte est conservée. Ceci prouve que la tâche a été accomplie.</div></div>
+<div class="card"><h2>📚 Procédures et formation</h2><p>C'est ici que se trouvent les documents et les vidéos de formation. Cliquez sur Ouvrir pour les afficher.</p></div>
+<h3 class="sect">Problèmes courants</h3><div class="card"><b>Impossible de se connecter</b><p>Ouvrez l'icône sur l'écran d'accueil. Si le lien est perdu, vous pouvez demander un nouveau lien à l'administrateur.</p></div><div class="card"><b>Ce lien est personnel.</b><p>Ce lien vous identifie. Ne le transmettez à personne : toute personne qui l'ouvrira verra vos horaires.</p></div><div class="card qa"><b>Questions</b><p>Pour toute question, vous pouvez contacter le responsable.</p></div></div>
+<p class="foot">🗓️</p></div>
+<script>
+(function(){
+  var isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) ||
+              (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  function setDev(d){
+    document.querySelectorAll('.dv').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-dev') === d); });
+    document.querySelectorAll('.dev-ios').forEach(function(e){ e.hidden = (d !== 'ios'); });
+    document.querySelectorAll('.dev-and').forEach(function(e){ e.hidden = (d !== 'and'); });
+    try{ localStorage.setItem('wg-dev', d); }catch(e){}
+  }
+  function setLang(k){
+    document.querySelectorAll('.lg').forEach(function(b){
+      b.classList.toggle('on', b.getAttribute('data-lg') === k); });
+    document.querySelectorAll('.lb').forEach(function(e){
+      e.hidden = (e.getAttribute('data-lb') !== k); });
+    document.documentElement.lang = k;
+    document.documentElement.dir = (k === 'he' || k === 'ar') ? 'rtl' : 'ltr';
+    try{ localStorage.setItem('wg-lang', k); }catch(e){}
+    window.scrollTo(0,0);
+  }
+  document.addEventListener('click', function(ev){
+    var l = ev.target.closest('.lg'); if(l){ setLang(l.getAttribute('data-lg')); return; }
+    var d = ev.target.closest('.dv'); if(d){ setDev(d.getAttribute('data-dev')); }
+  });
+  var savedDev = null, savedLang = null;
+  try{ savedDev = localStorage.getItem('wg-dev'); savedLang = localStorage.getItem('wg-lang'); }catch(e){}
+  setDev(savedDev || (isIOS ? 'ios' : 'and'));
+  if(savedLang) setLang(savedLang);
+})();
+</script></body></html>
