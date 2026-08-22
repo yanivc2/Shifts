@@ -728,6 +728,7 @@ let saveT,localOK=null,remoteOK=null,rtChan=null;
 /* ---------- Employee app (personal link) ---------- */
 var _meTok=null,_meWeek=null,_meNextWeek=null,_meAvail={};
 function empLink(tok){return REDIRECT+'?me='+encodeURIComponent(tok);}
+function empWelcome(tok){return REDIRECT+'welcome.html?me='+encodeURIComponent(tok);}
 function wkKeyOf(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10);}
 function cellLabel(k){
   var p=String(k).split('-'),di=parseInt(p[0],10),sh=p[1];
@@ -2029,8 +2030,10 @@ function renderEmpList(){
       try{
         var r=await sb.rpc('create_emp_token',{p_store:S.cur,p_emp:emp.id});
         if(r.error)throw r.error;
-        var url=empLink(r.data);
-        var msg='היי '+emp.name+', זה הקישור האישי שלך למשמרות בסניף '+((loc()||{}).name||'')+':\n'+url;
+        var url=empWelcome(r.data);
+        var msg='היי '+emp.name+', מעכשיו המשמרות שלך באפליקציה 📱\n'+
+                'הקישור האישי שלך, כולל הסבר איך להתקין:\n'+url+'\n'+
+                'הקישור אישי — לא להעביר לאף אחד.';
         if(navigator.share){navigator.share({title:'הקישור שלך למשמרות',text:msg}).catch(function(){});}
         else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('הקישור הועתק');}
         else{toast('הקישור נוצר');}
