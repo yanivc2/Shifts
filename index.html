@@ -787,14 +787,15 @@ async function initMe(tok){
     b.onclick=function(){askSwap(b.getAttribute('data-swap'),b);};
   });
   document.getElementById('meVac').onclick=async function(){
-    var f=await askText('בקשת חופשה — מתאריך','','YYYY-MM-DD');if(!f)return;
-    var t2=await askText('בקשת חופשה — עד תאריך',f,'YYYY-MM-DD');if(!t2)return;
+    var f=await askDate('בקשת חופשה — מתאריך','');if(!f)return;
+    var t2=await askDate('בקשת חופשה — עד תאריך',f);if(!t2)return;
+    if(t2<f){toast('תאריך הסיום מוקדם מתאריך ההתחלה');return;}
     sendReq('vacation',{p_from:f,p_to:t2},null,'בקשת חופשה '+f+' עד '+t2);
   };
   document.getElementById('meAddHrs').onclick=async function(){
-    var d=await askText('תאריך העבודה',new Date().toISOString().slice(0,10),'YYYY-MM-DD');if(!d)return;
-    var st=await askText('שעת כניסה','','לדוגמה: 07:00');if(!st)return;
-    var en=await askText('שעת יציאה','','לדוגמה: 15:00');if(!en)return;
+    var d=await askDate('תאריך העבודה','');if(!d)return;
+    var st=await askTime('שעת כניסה','');if(!st)return;
+    var en=await askTime('שעת יציאה','');if(!en)return;
     var nt=await askText('הערה (לא חובה)','','');
     try{var r=await sb.rpc('emp_report_hours',{p_token:_meTok,p_date:d,p_start:st,p_end:en,p_note:nt||''});
       if(r.error)throw r.error;toast('הדיווח נשמר ✓');loadMyHours();}
@@ -1185,9 +1186,9 @@ function renderHourReports(){
   box.querySelectorAll('[data-hre]').forEach(function(b){
     b.onclick=async function(){
       var h=_hrs[+b.getAttribute('data-hre')];
-      var d=await askText('תאריך',h.work_date,'YYYY-MM-DD');if(d===null)return;
-      var st=await askText('שעת כניסה',h.start_time||'','07:00');if(st===null)return;
-      var en=await askText('שעת יציאה',h.end_time||'','15:00');if(en===null)return;
+      var d=await askDate('תאריך',h.work_date);if(d===null)return;
+      var st=await askTime('שעת כניסה',h.start_time||'');if(st===null)return;
+      var en=await askTime('שעת יציאה',h.end_time||'');if(en===null)return;
       try{var r=await sb.from('hour_reports').update({work_date:d,start_time:st,end_time:en}).eq('id',h.id);
         if(r.error)throw r.error;loadHourReports();}
       catch(e){toast('העדכון נכשל');}
@@ -1224,9 +1225,9 @@ async function addHourRow(){
   box.querySelectorAll('[data-hn]').forEach(function(b){
     b.onclick=async function(){
       var e=emps[+b.getAttribute('data-hn')];
-      var d=await askText('תאריך העבודה — '+e.name,new Date().toISOString().slice(0,10),'YYYY-MM-DD');if(!d){loadHourReports();return;}
-      var st=await askText('שעת כניסה','','07:00');if(!st){loadHourReports();return;}
-      var en=await askText('שעת יציאה','','15:00');if(!en){loadHourReports();return;}
+      var d=await askDate('תאריך העבודה — '+e.name,'');if(!d){loadHourReports();return;}
+      var st=await askTime('שעת כניסה','');if(!st){loadHourReports();return;}
+      var en=await askTime('שעת יציאה','');if(!en){loadHourReports();return;}
       var nt=await askText('הערה (לא חובה)','','');
       try{var r=await sb.rpc('mgr_add_hours',{p_store:S.cur,p_emp:e.id,p_date:d,p_start:st,p_end:en,p_note:nt||''});
         if(r.error)throw r.error;toast('היום נוסף ✓');}
@@ -1827,10 +1828,32 @@ function esc(s){return String(s==null?'':s).replace(/[&<>"']/g,function(c){retur
 function askText(title,value,ph){return new Promise(res=>{
   const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
   document.getElementById('dlgTitle').textContent=title;
-  inp.style.display='block';inp.value=value||'';inp.placeholder=ph||'';
+  inp.type='text';inp.style.display='block';inp.value=value||'';inp.placeholder=ph||'';
   w.classList.add('open');setTimeout(()=>inp.focus(),50);
   document.getElementById('dlgOk').onclick=()=>{w.classList.remove('open');res(inp.value);};
   document.getElementById('dlgCancel').onclick=()=>{w.classList.remove('open');res(null);};
+});}
+function askDate(title,value){return new Promise(res=>{
+  const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
+  document.getElementById('dlgTitle').textContent=title;
+  const prevType=inp.type;
+  inp.type='date';inp.style.display='block';inp.placeholder='';
+  inp.value=(value&&/^\d{4}-\d{2}-\d{2}$/.test(value))?value:new Date().toISOString().slice(0,10);
+  w.classList.add('open');
+  const done=v=>{w.classList.remove('open');inp.type=prevType||'text';res(v);};
+  document.getElementById('dlgOk').onclick=()=>done(inp.value||null);
+  document.getElementById('dlgCancel').onclick=()=>done(null);
+});}
+function askTime(title,value){return new Promise(res=>{
+  const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
+  document.getElementById('dlgTitle').textContent=title;
+  const prevType=inp.type;
+  inp.type='time';inp.style.display='block';inp.placeholder='';
+  inp.value=(value&&/^\d{1,2}:\d{2}$/.test(value))?value:'';
+  w.classList.add('open');
+  const done=v=>{w.classList.remove('open');inp.type=prevType||'text';res(v);};
+  document.getElementById('dlgOk').onclick=()=>done(inp.value||null);
+  document.getElementById('dlgCancel').onclick=()=>done(null);
 });}
 function askConfirm(title){return new Promise(res=>{
   const w=document.getElementById('dlg');
