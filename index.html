@@ -318,7 +318,9 @@ main{padding:12px}
   <div style="padding:16px 14px 40px">
     <div class="sec-t">השבוע שלי</div>
     <div id="meWeek"></div>
-    <button class="sub-act ghost" id="mePush" style="width:100%">🔔 הפעלת התראות</button>
+    <div class="sec-t">🌐 שפה</div>
+    <div id="meLang" style="display:flex;flex-wrap:wrap"></div>
+    <button class="sub-act ghost" id="mePush" style="width:100%;margin-top:6px">🔔 הפעלת התראות</button>
     <div class="sec-t">המשימות שלי</div>
     <div id="meTasks"></div>
     <div class="sec-t">נהלים והדרכות</div>
@@ -493,6 +495,8 @@ main{padding:12px}
   <div class="sheet-body">
     <button class="btn btn-ghost" id="btnManage" style="width:100%;margin-bottom:8px">👥 שותפים והרשאות</button>
     <button class="btn btn-ghost" id="btnTheme" style="width:100%;margin-bottom:8px">🎨 ערכת נושא · <span id="themeName">טרקוטה</span></button>
+    <div style="font-size:12.5px;color:var(--muted);margin:2px 2px 6px">🌐 שפת התצוגה שלך</div>
+    <div id="mgrLang" style="display:flex;flex-wrap:wrap;margin-bottom:10px"></div>
     <button class="btn btn-ghost" id="btnBackup" style="width:100%;margin-bottom:8px">💾 גיבוי נתונים</button>
     <button class="btn btn-ghost" id="btnRestore" style="width:100%;margin-bottom:8px">♻️ שחזור מגיבוי</button>
     <button class="btn btn-ghost" id="btnImportCloud" style="width:100%;margin-bottom:8px">☁️ ייבוא נתוני המכשיר לענן</button>
@@ -808,6 +812,7 @@ async function initMe(tok){
     sendReq('advance',{p_amount:n},null,'בקשת מפרעה '+n+' ₪');
   };
   document.getElementById('mePush').onclick=function(){enablePush(_meTok);};
+  renderLangPicker('meLang',function(){loadMeTasks();loadMeDocs();});
   loadMyReqs();loadIncomingSwaps();loadMyHours();loadMeTasks();loadMeDocs();
   renderMeAvail();
 }
@@ -1087,7 +1092,7 @@ async function addTask(){
 async function loadMeTasks(){
   var box=document.getElementById('meTasks');if(!box)return;
   try{
-    var r=await sb.rpc('emp_tasks',{p_token:_meTok});if(r.error)throw r.error;
+    var r=await sb.rpc('emp_tasks_lang',{p_token:_meTok,p_lang:langGet()});if(r.error)throw r.error;
     var list=r.data||[];
     if(!list.length){box.innerHTML='<p style="color:var(--muted);font-size:13px">אין משימות פתוחות.</p>';return;}
     box.innerHTML=list.map(function(t,i){
@@ -1113,7 +1118,7 @@ async function loadMeTasks(){
 async function loadMeDocs(){
   var box=document.getElementById('meDocs');if(!box)return;
   try{
-    var r=await sb.rpc('emp_docs',{p_token:_meTok});if(r.error)throw r.error;
+    var r=await sb.rpc('emp_docs_lang',{p_token:_meTok,p_lang:langGet()});if(r.error)throw r.error;
     var list=r.data||[];
     if(!list.length){box.innerHTML='<p style="color:var(--muted);font-size:13px">אין נהלים.</p>';return;}
     box.innerHTML=list.map(function(d){
@@ -1473,6 +1478,22 @@ function viewSub(sub){
     return DAYS[c.di]+' '+(sh?sh.name:c.sh);
   });
   toast(names.length?names.join(' · '):'ההגשה ריקה');
+}
+/* ---------- Language ---------- */
+var LANGS=[{id:'he',name:'עברית'},{id:'en',name:'English'},{id:'fr',name:'Français'},
+           {id:'ar',name:'العربية'},{id:'th',name:'ไทย'}];
+function langGet(){try{return localStorage.getItem('sched-lang')||'he';}catch(e){return 'he';}}
+function langSet(v){try{localStorage.setItem('sched-lang',v);}catch(e){}}
+function langName(id){for(var i=0;i<LANGS.length;i++){if(LANGS[i].id===id)return LANGS[i].name;}return 'עברית';}
+function renderLangPicker(boxId,onPick){
+  var box=document.getElementById(boxId);if(!box)return;
+  var cur=langGet();
+  box.innerHTML=LANGS.map(function(l){
+    return '<button class="sub-act'+(l.id===cur?'':' ghost')+'" data-lang="'+l.id+'" style="flex:1;min-width:30%;padding:10px 6px;margin:0 4px 6px 0">'+l.name+'</button>';
+  }).join('');
+  box.querySelectorAll('[data-lang]').forEach(function(b){
+    b.onclick=function(){langSet(b.getAttribute('data-lang'));renderLangPicker(boxId,onPick);if(onPick)onPick();};
+  });
 }
 /* ---------- Web push ---------- */
 var VAPID_PUB='BKaqqlvU_B1cIXudsPoH_FDQVKEGFL-EgX3dlspbYc2sPNrhpBW-g-VQjcOgpPIbbYkA86lvx8rx1OCAPipT_wQ';
@@ -2452,6 +2473,7 @@ document.getElementById('btnAdvSum').onclick=advanceSummary;
 document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSheet('availTabSheet');document.getElementById('availInboxSub').textContent='שבוע '+wkKey();loadCovers();loadSubs();};
 document.getElementById('tabMore').onclick=function(){setTab('tabMore');openSheet('moreSheet');};
 document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet('themeSheet');};
+try{renderLangPicker('mgrLang',null);}catch(e){}
 document.getElementById('btnJoinLink').onclick=async function(){
   var role=(document.getElementById('mgrRole')||{}).value||'manager';
   var b=this;b.disabled=true;
