@@ -369,8 +369,13 @@ main{padding:12px}
         <div style="font-size:13px;color:var(--muted)" id="joinRole"></div>
       </div>
       <div class="auth-field"><label>שם מלא</label><input id="jnName" placeholder="השם שלך"></div>
-      <div class="auth-field"><label>שם משתמש</label><input id="jnUser" autocapitalize="off" autocorrect="off" placeholder="באנגלית, בלי רווחים"></div>
-      <div class="auth-field"><label>סיסמה</label><input id="jnPass" type="password" autocomplete="new-password" placeholder="לפחות 6 תווים"></div>
+      <div id="jnGiven" hidden style="background:var(--brand-soft,#FBEDE5);border-radius:12px;padding:12px;margin-bottom:10px;font-size:14px">
+        <div style="color:var(--muted);font-size:12.5px;margin-bottom:4px">פרטי הכניסה שלך</div>
+        <div>שם משתמש: <b id="jnGivenU"></b></div>
+        <div>סיסמה: <b id="jnGivenP"></b></div>
+      </div>
+      <div class="auth-field jnManual"><label>שם משתמש</label><input id="jnUser" autocapitalize="off" autocorrect="off" placeholder="באנגלית, בלי רווחים"></div>
+      <div class="auth-field jnManual"><label>סיסמה</label><input id="jnPass" type="password" autocomplete="new-password" placeholder="לפחות 6 תווים"></div>
       <div id="jnHint" style="font-size:13px;color:var(--brand);font-weight:700;margin:-4px 2px 8px;min-height:17px"></div>
       <button class="auth-btn" id="btnJoin">הצטרפות</button>
       <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:10px">אין שחזור סיסמה לשם משתמש — שמור אותה</p>
@@ -498,6 +503,7 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnTheme" style="width:100%;margin-bottom:8px">🎨 ערכת נושא · <span id="themeName">טרקוטה</span></button>
     <div style="font-size:12.5px;color:var(--muted);margin:2px 2px 6px">🌐 שפת התצוגה שלך</div>
     <div id="mgrLang" style="display:flex;flex-wrap:wrap;margin-bottom:10px"></div>
+    <button class="btn btn-ghost" id="btnChgPass" style="width:100%;margin-bottom:8px">🔑 שינוי סיסמה</button>
     <button class="btn btn-ghost" id="btnBackup" style="width:100%;margin-bottom:8px">💾 גיבוי נתונים</button>
     <button class="btn btn-ghost" id="btnRestore" style="width:100%;margin-bottom:8px">♻️ שחזור מגיבוי</button>
     <button class="btn btn-ghost" id="btnImportCloud" style="width:100%;margin-bottom:8px">☁️ ייבוא נתוני המכשיר לענן</button>
@@ -550,7 +556,7 @@ main{padding:12px}
 <!-- Members / permissions (phase 2) -->
 <div class="sheet" id="mgrSheet">
   <div class="sheet-head"><h2>👥 שותפים והרשאות · <span id="mgrLocName"></span></h2>
-    <p>שותף = עריכה מלאה של הסניף. מנהל = צפייה ועריכת הסידור. ההזמנה לפי אימייל — כשהאדם נרשם או מתחבר, הסניף יופיע אצלו.</p></div>
+    <p>שותף = עריכה מלאה של הסניף. מנהל = צפייה ועריכת הסידור. בחר תפקיד ושלח קישור בוואטסאפ — שם המשתמש והסיסמה נוצרים אוטומטית.</p></div>
   <div class="sheet-body" id="mgrBody"></div>
   <div id="pendWrap" style="padding:0 4px"></div>
   <div style="padding:8px 4px 0">
@@ -1856,6 +1862,17 @@ function askText(title,value,ph){return new Promise(res=>{
   document.getElementById('dlgOk').onclick=()=>{w.classList.remove('open');res(inp.value);};
   document.getElementById('dlgCancel').onclick=()=>{w.classList.remove('open');res(null);};
 });}
+function askPass(title){return new Promise(res=>{
+  const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
+  document.getElementById('dlgTitle').textContent=title;
+  const prevType=inp.type;
+  inp.type='password';inp.style.display='block';inp.value='';inp.placeholder='לפחות 6 תווים';
+  inp.setAttribute('autocomplete','new-password');
+  w.classList.add('open');setTimeout(()=>inp.focus(),50);
+  const done=v=>{w.classList.remove('open');inp.type=prevType||'text';inp.removeAttribute('autocomplete');inp.value='';res(v);};
+  document.getElementById('dlgOk').onclick=()=>done(inp.value);
+  document.getElementById('dlgCancel').onclick=()=>done(null);
+});}
 function askDate(title,value){return new Promise(res=>{
   const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
   document.getElementById('dlgTitle').textContent=title;
@@ -2478,19 +2495,46 @@ document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSh
 document.getElementById('tabMore').onclick=function(){setTab('tabMore');openSheet('moreSheet');};
 document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet('themeSheet');};
 try{renderLangPicker('mgrLang',null);}catch(e){}
+function genCred(role){
+  var base=(role==='coowner'?'partner':'mgr');
+  var n='';for(var i=0;i<4;i++)n+='0123456789'[Math.floor(Math.random()*10)];
+  var abc='abcdefghijkmnpqrstuvwxyz23456789',p='';
+  for(var j=0;j<8;j++)p+=abc[Math.floor(Math.random()*abc.length)];
+  return {u:base+n,p:p};
+}
 document.getElementById('btnJoinLink').onclick=async function(){
   var role=(document.getElementById('mgrRole')||{}).value||'manager';
   var b=this;b.disabled=true;
   try{
     var r=await sb.rpc('create_join_token',{p_store:S.cur,p_role:role,p_hours:48,p_max_uses:1});
     if(r.error)throw r.error;
-    var url=joinLink(r.data);
-    var msg='הוזמנת לנהל את סידור העבודה בסניף "'+((loc()||{}).name||'')+'".\nהקישור תקף ל-48 שעות ולשימוש אחד:\n'+url;
+    var cr=genCred(role);
+    var url=joinLink(r.data)+'&u='+encodeURIComponent(cr.u)+'&p='+encodeURIComponent(cr.p);
+    var rn=(role==='coowner'?'שותף':'מנהל');
+    var msg='הוזמנת לסידור העבודה בסניף "'+((loc()||{}).name||'')+'" בתור '+rn+'.\n\n'+
+            'לחיצה על הקישור, ואז על כפתור ההצטרפות — זה הכל:\n'+url+'\n\n'+
+            'שם משתמש: '+cr.u+'\nסיסמה: '+cr.p+'\n'+
+            '(אפשר לשנות את הסיסמה אחר כך ב⚙️ הגדרות)\n'+
+            'הקישור תקף ל-48 שעות ולשימוש אחד.';
     if(navigator.share){navigator.share({title:'הזמנה לסידור עבודה',text:msg}).catch(function(){});}
     else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('הקישור הועתק — הדבק בוואטסאפ');}
     else{toast('הקישור נוצר');}
   }catch(e){toast('יצירת הקישור נכשלה');}
   b.disabled=false;
+};
+document.getElementById('btnChgPass').onclick=async function(){
+  var p1=await askPass('סיסמה חדשה');
+  if(p1===null)return;
+  p1=String(p1||'');
+  if(p1.length<6){toast('הסיסמה קצרה מדי — לפחות 6 תווים');return;}
+  var p2=await askPass('הקלד שוב את הסיסמה החדשה');
+  if(p2===null)return;
+  if(String(p2)!==p1){toast('הסיסמאות אינן זהות');return;}
+  try{
+    var r=await sb.auth.updateUser({password:p1});
+    if(r.error)throw r.error;
+    toast('הסיסמה שונתה');
+  }catch(e){toast('שינוי הסיסמה נכשל');}
 };
 document.getElementById('btnManage').onclick=function(){openManage();};
 document.getElementById('btnSettings').onclick=function(){if(!canManage(S.cur)){toast('ההגדרות זמינות לבעלים ולשותפים בלבד');return;}openSheet('setSheet');};
@@ -2798,6 +2842,18 @@ function jnSanitize(){
 }
 async function showJoin(tok){
   _joinTok=tok;
+  try{
+    var q=new URLSearchParams(location.search), gu=q.get('u'), gp=q.get('p');
+    if(gu&&gp){
+      document.getElementById('jnUser').value=gu;
+      document.getElementById('jnPass').value=gp;
+      document.getElementById('jnGivenU').textContent=gu;
+      document.getElementById('jnGivenP').textContent=gp;
+      document.getElementById('jnGiven').hidden=false;
+      document.querySelectorAll('.jnManual').forEach(function(e){e.hidden=true;});
+      var h=document.getElementById('jnHint'); if(h)h.textContent='';
+    }
+  }catch(e){}
   showAuthCard();
   var info=null;
   try{const r=await sb.rpc('join_token_info',{p_token:tok});if(r.error)throw r.error;info=r.data;}catch(e){info=null;}
