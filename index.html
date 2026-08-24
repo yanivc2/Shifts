@@ -503,6 +503,7 @@ main{padding:12px}
     <button class="btn btn-ghost" id="btnTheme" style="width:100%;margin-bottom:8px">🎨 ערכת נושא · <span id="themeName">טרקוטה</span></button>
     <div style="font-size:12.5px;color:var(--muted);margin:2px 2px 6px">🌐 שפת התצוגה שלך</div>
     <div id="mgrLang" style="display:flex;flex-wrap:wrap;margin-bottom:10px"></div>
+    <div id="whoAmI" style="font-size:12.5px;color:var(--muted);margin:2px 2px 8px"></div>
     <button class="btn btn-ghost" id="btnChgPass" style="width:100%;margin-bottom:8px">🔑 שינוי סיסמה</button>
     <button class="btn btn-ghost" id="btnBackup" style="width:100%;margin-bottom:8px">💾 גיבוי נתונים</button>
     <button class="btn btn-ghost" id="btnRestore" style="width:100%;margin-bottom:8px">♻️ שחזור מגיבוי</button>
@@ -2497,7 +2498,8 @@ document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet(
 try{renderLangPicker('mgrLang',null);}catch(e){}
 function genCred(role){
   var base=(role==='coowner'?'partner':'mgr');
-  var n='';for(var i=0;i<4;i++)n+='0123456789'[Math.floor(Math.random()*10)];
+  var pool='abcdefghijkmnpqrstuvwxyz23456789';
+  var n='';for(var i=0;i<6;i++)n+=pool[Math.floor(Math.random()*pool.length)];
   var abc='abcdefghijkmnpqrstuvwxyz23456789',p='';
   for(var j=0;j<8;j++)p+=abc[Math.floor(Math.random()*abc.length)];
   return {u:base+n,p:p};
@@ -2537,7 +2539,16 @@ document.getElementById('btnChgPass').onclick=async function(){
   }catch(e){toast('שינוי הסיסמה נכשל');}
 };
 document.getElementById('btnManage').onclick=function(){openManage();};
-document.getElementById('btnSettings').onclick=function(){if(!canManage(S.cur)){toast('ההגדרות זמינות לבעלים ולשותפים בלבד');return;}openSheet('setSheet');};
+async function showWhoAmI(){
+  try{
+    var g=await sb.auth.getUser(); var em=((g.data||{}).user||{}).email||'';
+    var el=document.getElementById('whoAmI'); if(!el)return;
+    el.textContent = em ? (em.indexOf('@shifts.local')>-1
+      ? 'שם המשתמש שלך: '+em.replace('@shifts.local','')
+      : 'מחובר כ: '+em) : '';
+  }catch(e){}
+}
+document.getElementById('btnSettings').onclick=function(){if(!canManage(S.cur)){toast('ההגדרות זמינות לבעלים ולשותפים בלבד');return;}openSheet('setSheet');showWhoAmI();};
 /* ---- Availability self-fill link + submissions (phase 3, owner side) ---- */
 async function getAvailToken(locId){const {data,error}=await sb.from('store_tokens').select('token').eq('store_id',locId).order('created_at',{ascending:false}).limit(1);if(error)throw error;return (data&&data[0]&&data[0].token)||null;}
 async function createAvailToken(locId){const {data,error}=await sb.rpc('create_avail_token',{p_store:locId});if(error)throw error;return data;}
@@ -2915,7 +2926,8 @@ document.getElementById('btnJoin').onclick=async()=>{
   var r=await sb.auth.signUp({email:mail,password:pw,options:{data:{full_name:nm}}});
   if(r.error&&String(r.error.message||'').toLowerCase().indexOf('already')<0){b.disabled=false;aMsg(heErr(r.error));return;}
   var si=await sb.auth.signInWithPassword({email:mail,password:pw});
-  if(si.error){b.disabled=false;aMsg('שם המשתמש כבר תפוס או שהסיסמה שגויה');return;}
+  if(si.error){b.disabled=false;
+    aMsg('שם המשתמש הזה כבר קיים. בקש מהמנהל לשלוח קישור הזמנה חדש.');return;}
   try{const rr=await sb.rpc('redeem_join_token',{p_token:_joinTok});if(rr.error)throw rr.error;}
   catch(e){b.disabled=false;aMsg('קישור ההצטרפות אינו תקף או שפג תוקפו');return;}
   b.disabled=false;showApp();
