@@ -264,6 +264,10 @@ main{padding:12px}
 .auth-logo .badge{width:64px;height:64px;border-radius:18px;background:var(--brand-soft);display:inline-flex;align-items:center;justify-content:center;font-size:32px;margin-bottom:10px}
 .auth-logo h2{font-size:20px;color:var(--brand)}
 .auth-logo p{font-size:13px;color:var(--muted);margin-top:3px}
+.jn-rules{font-size:12.5px;line-height:1.55;color:var(--muted);margin:0 2px 6px}
+.jn-chk{font-size:12.5px;font-weight:700;margin:5px 2px 0;min-height:16px}
+.jn-chk.bad{color:#B04A34}
+.jn-chk.good{color:#4C7A4C}
 .auth-panel{display:none}
 .auth-panel.on{display:block}
 .auth-field{margin-bottom:12px}
@@ -369,16 +373,19 @@ main{padding:12px}
         <div style="font-size:13px;color:var(--muted)" id="joinRole"></div>
       </div>
       <div class="auth-field"><label>שם מלא</label><input id="jnName" placeholder="השם שלך"></div>
-      <div id="jnGiven" hidden style="background:var(--brand-soft,#FBEDE5);border-radius:12px;padding:12px;margin-bottom:10px;font-size:14px">
-        <div style="color:var(--muted);font-size:12.5px;margin-bottom:4px">פרטי הכניסה שלך</div>
-        <div>שם משתמש: <b id="jnGivenU"></b></div>
-        <div>סיסמה: <b id="jnGivenP"></b></div>
+      <div class="auth-field">
+        <label>שם משתמש</label>
+        <div class="jn-rules">אותיות באנגלית או ספרות · בלי רווחים · בלי עברית · לפחות 3 תווים<br>לדוגמה: <b>EladManager</b> או <b>elad2024</b></div>
+        <input id="jnUser" autocapitalize="off" autocorrect="off" spellcheck="false" placeholder="בחר שם משתמש">
+        <div class="jn-chk" id="jnUserChk"></div>
       </div>
-      <div class="auth-field jnManual"><label>שם משתמש</label><input id="jnUser" autocapitalize="off" autocorrect="off" placeholder="באנגלית, בלי רווחים"></div>
-      <div class="auth-field jnManual"><label>סיסמה</label><input id="jnPass" type="password" autocomplete="new-password" placeholder="לפחות 6 תווים"></div>
-      <div id="jnHint" style="font-size:13px;color:var(--brand);font-weight:700;margin:-4px 2px 8px;min-height:17px"></div>
+      <div class="auth-field">
+        <label>סיסמה</label>
+        <div class="jn-rules">לפחות 6 תווים · אפשר אותיות, ספרות וסימנים<br>אין שחזור סיסמה — כדאי לשמור אותה</div>
+        <input id="jnPass" type="password" autocomplete="new-password" placeholder="בחר סיסמה">
+        <div class="jn-chk" id="jnPassChk"></div>
+      </div>
       <button class="auth-btn" id="btnJoin">הצטרפות</button>
-      <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:10px">אין שחזור סיסמה לשם משתמש — שמור אותה</p>
     </div>
 
     <div class="auth-panel" id="pForgot">
@@ -2496,27 +2503,18 @@ document.getElementById('tabAvail').onclick=function(){setTab('tabAvail');openSh
 document.getElementById('tabMore').onclick=function(){setTab('tabMore');openSheet('moreSheet');};
 document.getElementById('btnTheme').onclick=function(){renderThemes();openSheet('themeSheet');};
 try{renderLangPicker('mgrLang',null);}catch(e){}
-function genCred(role){
-  var base=(role==='coowner'?'partner':'mgr');
-  var pool='abcdefghijkmnpqrstuvwxyz23456789';
-  var n='';for(var i=0;i<6;i++)n+=pool[Math.floor(Math.random()*pool.length)];
-  var abc='abcdefghijkmnpqrstuvwxyz23456789',p='';
-  for(var j=0;j<8;j++)p+=abc[Math.floor(Math.random()*abc.length)];
-  return {u:base+n,p:p};
-}
 document.getElementById('btnJoinLink').onclick=async function(){
   var role=(document.getElementById('mgrRole')||{}).value||'manager';
   var b=this;b.disabled=true;
   try{
     var r=await sb.rpc('create_join_token',{p_store:S.cur,p_role:role,p_hours:48,p_max_uses:1});
     if(r.error)throw r.error;
-    var cr=genCred(role);
-    var url=joinLink(r.data)+'&u='+encodeURIComponent(cr.u)+'&p='+encodeURIComponent(cr.p);
+    var url=joinLink(r.data)+'&v='+Date.now().toString(36);
     var rn=(role==='coowner'?'שותף':'מנהל');
-    var msg='הוזמנת לסידור העבודה בסניף "'+((loc()||{}).name||'')+'" בתור '+rn+'.\n\n'+
-            'לחיצה על הקישור, ואז על כפתור ההצטרפות — זה הכל:\n'+url+'\n\n'+
-            'שם משתמש: '+cr.u+'\nסיסמה: '+cr.p+'\n'+
-            '(אפשר לשנות את הסיסמה אחר כך ב⚙️ הגדרות)\n'+
+    var msg='הוזמנת לסידור העבודה בסניף "'+((loc()||{}).name||'')+'" בתור '+rn+'.\n'+url+'\n\n'+
+            'במסך שנפתח יש לבחור שם משתמש וסיסמה:\n'+
+            '• שם משתמש באותיות אנגליות או ספרות, בלי רווחים ובלי עברית (למשל EladManager)\n'+
+            '• סיסמה של 6 תווים לפחות — כדאי לשמור אותה, אין שחזור\n'+
             'הקישור תקף ל-48 שעות ולשימוש אחד.';
     if(navigator.share){navigator.share({title:'הזמנה לסידור עבודה',text:msg}).catch(function(){});}
     else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('הקישור הועתק — הדבק בוואטסאפ');}
@@ -2844,27 +2842,37 @@ function heErr(e){const s=(e&&e.message||'').toLowerCase();
 function joinLink(tok){return REDIRECT+'?join='+encodeURIComponent(tok);}
 function uname2mail(u){return String(u||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'')+'@shifts.local';}
 var _joinTok=null;
-function jnSanitize(){
-  var el=document.getElementById('jnUser'); if(!el)return;
-  var was=el.value, now=was.replace(/\s+/g,'').replace(/[^A-Za-z0-9._-]/g,'');
-  if(now!==was){var p=el.selectionStart; el.value=now; try{el.setSelectionRange(p-1,p-1);}catch(e){}}
-  var h=document.getElementById('jnHint');
-  if(h) h.textContent = now.length>=3 ? ('שם המשתמש שלך לכניסה: '+now.toLowerCase()) : '';
+function jnUserProblem(v){
+  if(!v) return '';
+  if(/[\u0590-\u05FF]/.test(v)) return 'עברית לא נתמכת — כתוב באותיות אנגליות';
+  if(/\s/.test(v))               return 'בלי רווחים — כתוב מחובר, למשל EladManager';
+  if(!/^[A-Za-z0-9._-]+$/.test(v))return 'מותר אותיות באנגלית, ספרות, נקודה ומקף בלבד';
+  if(v.length<3)                  return 'לפחות 3 תווים';
+  return '';
+}
+function jnPassProblem(v){
+  if(!v) return '';
+  if(v.length<6) return 'עוד '+(6-v.length)+' תווים לפחות';
+  return '';
+}
+function jnCheck(){
+  var u=(document.getElementById('jnUser')||{}).value||'';
+  var p=(document.getElementById('jnPass')||{}).value||'';
+  var cu=document.getElementById('jnUserChk'), cp=document.getElementById('jnPassChk');
+  if(cu){
+    var pu=jnUserProblem(u);
+    cu.className='jn-chk'+(u?(pu?' bad':' good'):'');
+    cu.textContent = !u ? '' : (pu ? '✕ '+pu : '✓ שם המשתמש שלך לכניסה: '+u.toLowerCase());
+  }
+  if(cp){
+    var pp=jnPassProblem(p);
+    cp.className='jn-chk'+(p?(pp?' bad':' good'):'');
+    cp.textContent = !p ? '' : (pp ? '✕ '+pp : '✓ הסיסמה תקינה');
+  }
 }
 async function showJoin(tok){
   _joinTok=tok;
-  try{
-    var q=new URLSearchParams(location.search), gu=q.get('u'), gp=q.get('p');
-    if(gu&&gp){
-      document.getElementById('jnUser').value=gu;
-      document.getElementById('jnPass').value=gp;
-      document.getElementById('jnGivenU').textContent=gu;
-      document.getElementById('jnGivenP').textContent=gp;
-      document.getElementById('jnGiven').hidden=false;
-      document.querySelectorAll('.jnManual').forEach(function(e){e.hidden=true;});
-      var h=document.getElementById('jnHint'); if(h)h.textContent='';
-    }
-  }catch(e){}
+  try{jnCheck();}catch(e){}
   showAuthCard();
   var info=null;
   try{const r=await sb.rpc('join_token_info',{p_token:tok});if(r.error)throw r.error;info=r.data;}catch(e){info=null;}
@@ -2910,17 +2918,18 @@ document.getElementById('meSend').onclick=async function(){
   catch(e){toast('השליחה נכשלה');}
   b.disabled=false;
 };
-document.getElementById('jnUser').addEventListener('input',jnSanitize);
+document.getElementById('jnUser').addEventListener('input',jnCheck);
+document.getElementById('jnPass').addEventListener('input',jnCheck);
 document.getElementById('btnJoin').onclick=async()=>{
   const b=document.getElementById('btnJoin');
   const nm=document.getElementById('jnName').value.trim();
   const un=document.getElementById('jnUser').value.trim();
   const pw=document.getElementById('jnPass').value;
   if(!nm){aMsg('מלא שם מלא');return;}
-  if(/[\u0590-\u05FF]/.test(un)){aMsg('שם המשתמש חייב להיות באנגלית בלבד (בלי עברית)');return;}
-  if(/\s/.test(un)){aMsg('שם המשתמש לא יכול להכיל רווח — למשל EladManager');return;}
-  if(!/^[A-Za-z0-9._-]{3,}$/.test(un)){aMsg('שם משתמש: לפחות 3 תווים באנגלית או ספרות, בלי סימנים מיוחדים');return;}
-  if(!pw||pw.length<6){aMsg('סיסמה קצרה מדי (לפחות 6 תווים)');return;}
+  var pu=jnUserProblem(un);
+  if(!un||pu){aMsg(pu||'יש לבחור שם משתמש');document.getElementById('jnUser').focus();jnCheck();return;}
+  var pp=jnPassProblem(pw);
+  if(!pw||pp){aMsg(pp||'יש לבחור סיסמה');document.getElementById('jnPass').focus();jnCheck();return;}
   b.disabled=true;aMsg('');
   const mail=uname2mail(un);
   var r=await sb.auth.signUp({email:mail,password:pw,options:{data:{full_name:nm}}});
