@@ -348,7 +348,7 @@ main{padding:12px}
     <div class="auth-logo"><div class="badge">📋</div><h2>סידור עבודה שבועי</h2><p>Shifts · ניהול משמרות</p></div>
 
     <div class="auth-panel on" id="pLogin">
-      <div class="auth-field"><label>אימייל</label><input id="liEmail" type="email" inputmode="email" autocomplete="username" placeholder="name@email.com"></div>
+      <div class="auth-field"><label>אימייל או שם משתמש</label><input id="liEmail" type="text" inputmode="email" autocomplete="username" placeholder="name@email.com"></div>
       <div class="auth-field"><label>סיסמה</label><input id="liPass" type="password" autocomplete="current-password" placeholder="••••••••"></div>
       <button class="auth-btn" id="btnLogin">כניסה</button>
       <button class="auth-link" onclick="authMode('forgot')">שכחתי סיסמה</button>
@@ -371,6 +371,7 @@ main{padding:12px}
       <div class="auth-field"><label>שם מלא</label><input id="jnName" placeholder="השם שלך"></div>
       <div class="auth-field"><label>שם משתמש</label><input id="jnUser" autocapitalize="off" autocorrect="off" placeholder="באנגלית, בלי רווחים"></div>
       <div class="auth-field"><label>סיסמה</label><input id="jnPass" type="password" autocomplete="new-password" placeholder="לפחות 6 תווים"></div>
+      <div id="jnHint" style="font-size:13px;color:var(--brand);font-weight:700;margin:-4px 2px 8px;min-height:17px"></div>
       <button class="auth-btn" id="btnJoin">הצטרפות</button>
       <p style="font-size:12px;color:var(--muted);text-align:center;margin-top:10px">אין שחזור סיסמה לשם משתמש — שמור אותה</p>
     </div>
@@ -2788,6 +2789,13 @@ function heErr(e){const s=(e&&e.message||'').toLowerCase();
 function joinLink(tok){return REDIRECT+'?join='+encodeURIComponent(tok);}
 function uname2mail(u){return String(u||'').trim().toLowerCase().replace(/[^a-z0-9._-]/g,'')+'@shifts.local';}
 var _joinTok=null;
+function jnSanitize(){
+  var el=document.getElementById('jnUser'); if(!el)return;
+  var was=el.value, now=was.replace(/\s+/g,'').replace(/[^A-Za-z0-9._-]/g,'');
+  if(now!==was){var p=el.selectionStart; el.value=now; try{el.setSelectionRange(p-1,p-1);}catch(e){}}
+  var h=document.getElementById('jnHint');
+  if(h) h.textContent = now.length>=3 ? ('שם המשתמש שלך לכניסה: '+now.toLowerCase()) : '';
+}
 async function showJoin(tok){
   _joinTok=tok;
   showAuthCard();
@@ -2821,7 +2829,8 @@ async function initAuth(){
   if(session){showApp();}else{showAuthCard();authMode('login');}
 }
 document.getElementById('btnLogin').onclick=async()=>{
-  const b=document.getElementById('btnLogin'),email=document.getElementById('liEmail').value.trim(),pass=document.getElementById('liPass').value;
+  const b=document.getElementById('btnLogin'),raw=document.getElementById('liEmail').value.trim(),pass=document.getElementById('liPass').value;
+  const email=(raw.indexOf('@')>-1)?raw:uname2mail(raw);
   if(!email||!pass){aMsg('מלא אימייל וסיסמה');return;}
   b.disabled=true;aMsg('');
   const {error}=await sb.auth.signInWithPassword({email,password:pass});
@@ -2834,13 +2843,16 @@ document.getElementById('meSend').onclick=async function(){
   catch(e){toast('השליחה נכשלה');}
   b.disabled=false;
 };
+document.getElementById('jnUser').addEventListener('input',jnSanitize);
 document.getElementById('btnJoin').onclick=async()=>{
   const b=document.getElementById('btnJoin');
   const nm=document.getElementById('jnName').value.trim();
   const un=document.getElementById('jnUser').value.trim();
   const pw=document.getElementById('jnPass').value;
   if(!nm){aMsg('מלא שם מלא');return;}
-  if(!/^[A-Za-z0-9._-]{3,}$/.test(un)){aMsg('שם משתמש: לפחות 3 תווים באנגלית/ספרות');return;}
+  if(/[\u0590-\u05FF]/.test(un)){aMsg('שם המשתמש חייב להיות באנגלית בלבד (בלי עברית)');return;}
+  if(/\s/.test(un)){aMsg('שם המשתמש לא יכול להכיל רווח — למשל EladManager');return;}
+  if(!/^[A-Za-z0-9._-]{3,}$/.test(un)){aMsg('שם משתמש: לפחות 3 תווים באנגלית או ספרות, בלי סימנים מיוחדים');return;}
   if(!pw||pw.length<6){aMsg('סיסמה קצרה מדי (לפחות 6 תווים)');return;}
   b.disabled=true;aMsg('');
   const mail=uname2mail(un);
