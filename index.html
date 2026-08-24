@@ -442,7 +442,7 @@ main{padding:12px}
 <div class="actionbar tabbar">
   <button class="tab on" id="tabSched"><span>🗓️</span>הסידור</button>
   <button class="tab" id="tabTeam"><span>👥</span>הצוות</button>
-  <button class="tab" id="tabAvail"><span>✋</span>זמינות</button>
+  <button class="tab" id="tabAvail"><span>✋</span>שונות</button>
   <button class="tab" id="tabMore"><span>⋯</span>עוד</button>
 </div>
 
@@ -450,7 +450,6 @@ main{padding:12px}
 <div class="sheet" id="moreSheet">
   <div class="sheet-head"><h2>⋯ עוד</h2><p>כל הפעולות של הסניף</p></div>
   <div class="sheet-body">
-    <button class="btn btn-ghost" id="btnGrid" style="width:100%;margin-bottom:8px">📅 לוח מלא</button>
     <button class="btn btn-ghost" id="btnPrint" style="width:100%;margin-bottom:8px">🖨️ הדפסה</button>
     <button class="btn btn-ghost" id="btnShare" style="width:100%;margin-bottom:8px">📤 שיתוף תמונה</button>
     <button class="btn btn-ghost" id="btnPush" style="width:100%;margin-bottom:8px">🔔 הפעלת התראות</button>
@@ -464,8 +463,9 @@ main{padding:12px}
 
 <!-- Availability tab -->
 <div class="sheet" id="availTabSheet">
-  <div class="sheet-head"><h2>✋ זמינות</h2><p id="availInboxSub">הגשות זמינות לשבוע הנוכחי</p></div>
+  <div class="sheet-head"><h2>✋ שונות</h2><p id="availInboxSub">הגשות זמינות לשבוע הנוכחי</p></div>
   <div class="sheet-body">
+    <button class="btn btn-ghost" id="btnGrid" style="width:100%;margin-bottom:10px">📅 לוח מלא</button>
     <div id="coverInbox"></div>
     <div id="availInbox"></div>
     <button class="btn btn-ghost" id="btnTasks" style="width:100%;margin:12px 0 8px">✅ משימות</button>
@@ -2684,10 +2684,34 @@ function openAvail(empId){
   });
   openSheet('avSheet');
 }
+function availAskLines(empId){
+  var yes=[],no=[];
+  DAYS.forEach(function(dn,di){
+    var y=[],n=[];
+    SHIFTS.forEach(function(sh){
+      var v=getAv(empId,di,sh.id);
+      if(v==='yes')y.push(sh.ico+' '+sh.name);
+      else if(v==='no')n.push(sh.ico+' '+sh.name);
+    });
+    if(y.length)yes.push('• '+dn+' '+fmt(dOf(di))+' — '+y.join(', '));
+    if(n.length)no.push('• '+dn+' '+fmt(dOf(di))+' — '+n.join(', '));
+  });
+  return {yes:yes,no:no};
+}
 document.getElementById('btnAskAvail').onclick=()=>{
   const emp=loc().employees.find(e=>e.id===avEmpId);
   if(!emp.phone){toast('לעובד אין מספר טלפון');return;}
-  const msg='היי '+emp.name+' 👋\nמסדרים את הלוז לשבוע '+fmt(dOf(0))+'–'+fmt(dOf(6))+' ב'+loc().name+'.\nמתי אתה זמין? (בוקר / ערב / לילה, לכל יום)\nתודה!';
+  var L=availAskLines(avEmpId);
+  var msg='היי '+emp.name+' 👋\nמסדרים את הלוז לשבוע '+fmt(dOf(0))+'–'+fmt(dOf(6))+' ב'+loc().name+'.\n';
+  if(L.yes.length){
+    msg+='\nהמשמרות שאני מבקש שתאשר:\n'+L.yes.join('\n')+'\n';
+    if(L.no.length)msg+='\nסומן שאינך זמין:\n'+L.no.join('\n')+'\n';
+  } else if(L.no.length){
+    msg+='\nסומן שאינך זמין:\n'+L.no.join('\n')+'\nמתי כן תוכל?\n';
+  } else {
+    msg+='\nמתי אתה זמין? (בוקר / ערב / לילה, לכל יום)\n';
+  }
+  msg+='\nאנא עדכן בהקדם!';
   window.open('https://wa.me/'+ilPhone(emp.phone)+'?text='+encodeURIComponent(msg));
 };
 function ilPhone(p){p=p.replace(/[^0-9]/g,'');if(p.startsWith('0'))p='972'+p.slice(1);return p;}
@@ -2785,7 +2809,7 @@ function buildGridScreen(){
   html+='</tbody></table>';
   g.innerHTML=html;
 }
-function openGrid(){buildGridScreen();document.getElementById('gridScreen').classList.add('open');goFullscreen();}
+function openGrid(){closeSheets();buildGridScreen();document.getElementById('gridScreen').classList.add('open');goFullscreen();}
 function closeGrid(){exitFullscreen();document.getElementById('gridScreen').classList.remove('open');}
 function gridPrev(){weekStart.setDate(weekStart.getDate()-7);render();}
 function gridNext(){weekStart.setDate(weekStart.getDate()+7);render();}
