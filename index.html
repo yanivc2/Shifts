@@ -742,8 +742,8 @@ function mergePreset(){
 let saveT,localOK=null,remoteOK=null,rtChan=null;
 /* ---------- Employee app (personal link) ---------- */
 var _meTok=null,_meWeek=null,_meNextWeek=null,_meAvail={};
-function empLink(tok){return REDIRECT+'?me='+encodeURIComponent(tok);}
-function empWelcome(tok){return REDIRECT+'welcome.html?me='+encodeURIComponent(tok);}
+function empLink(tok){return REDIRECT+'?me='+encodeURIComponent(tok)+'&v='+Date.now().toString(36);}
+function empWelcome(tok){return REDIRECT+'welcome.html?me='+encodeURIComponent(tok)+'&v='+Date.now().toString(36);}
 function wkKeyOf(d){d=new Date(d);d.setHours(0,0,0,0);d.setDate(d.getDate()-d.getDay());return d.toISOString().slice(0,10);}
 function cellLabel(k){
   var p=String(k).split('-'),di=parseInt(p[0],10),sh=p[1];
@@ -2057,9 +2057,13 @@ function renderEmpList(){
         var r=await sb.rpc('create_emp_token',{p_store:S.cur,p_emp:emp.id});
         if(r.error)throw r.error;
         var url=empWelcome(r.data);
-        var msg='היי '+emp.name+', מעכשיו המשמרות שלך באפליקציה 📱\n'+
-                'הקישור האישי שלך, כולל הסבר איך להתקין:\n'+url+'\n'+
-                'הקישור אישי — לא להעביר לאף אחד.';
+        var msg='היי '+emp.name+', מעכשיו המשמרות שלך בסניף "'+((loc()||{}).name||'')+'" נמצאות באפליקציה 📱\n'+
+                url+'\n\n'+
+                'מה עושים:\n'+
+                '• לוחצים על הקישור — נפתח הסבר עם כפתור לאפליקציה שלך\n'+
+                '• אין צורך בשם משתמש או סיסמה — הקישור הזה הוא הכניסה שלך\n'+
+                '• כדאי להתקין למסך הבית מתוך האפליקציה, כדי לקבל התראות\n'+
+                '• הקישור אישי — לא להעביר לאף אחד, מי שפותח אותו רואה את המשמרות שלך';
         if(navigator.share){navigator.share({title:'הקישור שלך למשמרות',text:msg}).catch(function(){});}
         else if(navigator.clipboard){navigator.clipboard.writeText(msg);toast('הקישור הועתק');}
         else{toast('הקישור נוצר');}
