@@ -175,7 +175,8 @@ padding:14px;margin:0 0 14px;font-size:14.5px}
   });
   var tok = new URLSearchParams(location.search).get('me');
   if(tok){
-    var app = './index.html?me=' + encodeURIComponent(tok);
+    var v = new URLSearchParams(location.search).get('v') || Date.now().toString(36);
+    var app = './index.html?me=' + encodeURIComponent(tok) + '&v=' + encodeURIComponent(v);
     document.querySelectorAll('.applink').forEach(function(a){ a.href = app; });
     document.querySelectorAll('.cta,.instwarn').forEach(function(e){ e.hidden = false; });
   } else {
