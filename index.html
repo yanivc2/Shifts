@@ -1663,14 +1663,31 @@ async function empsWrite(locId,desc){
     return;
   }
   var proposed=cur.slice();
-  var base=(S._empsCloud&&S._empsCloud[locId])?S._empsCloud[locId].slice():[];
-  lo.employees=base;
+  var res;
+  try{res=await sb.rpc('mgr_set_employees',{p_store:locId,p_emps:proposed});}
+  catch(e){res={error:e};}
+  var d=res&&res.data;
+  if(res&&res.error){
+    revertEmps(locId);
+    toast('השמירה נכשלה — נסה שוב');
+    return;
+  }
+  if(d&&d.ok===false){
+    revertEmps(locId);
+    toast(d.reason==='delete_blocked'
+      ? 'מחיקת עובד מותרת לבעלים בלבד'+(d.who?(' ('+d.who+')'):'')
+      : 'הפעולה לא אושרה');
+    return;
+  }
+  S._empsCloud=S._empsCloud||{};S._empsCloud[locId]=proposed.slice();
+}
+function revertEmps(locId){
+  var lo=S.locations.find(function(l){return l.id===locId;})||{};
+  lo.employees=(S._empsCloud&&S._empsCloud[locId])?S._empsCloud[locId].slice():[];
   try{localStorage.setItem('sched-v1',JSON.stringify(S));}catch(e){}
   if(S.cur===locId&&typeof render==='function')render();
-  var es=document.getElementById('empSheet');if(es&&es.classList.contains('open')&&typeof renderEmpList==='function')renderEmpList();
-  var note=(desc&&desc.note)||'עדכון עובדים';
-  var res=await sb.rpc('request_emp_change',{p_store:locId,p_emps:proposed,p_note:note});
-  if(res&&res.error){toast('שגיאה בשליחת הבקשה');}else{toast('נשלח לאישור הבעלים');}
+  var es=document.getElementById('empSheet');
+  if(es&&es.classList.contains('open')&&typeof renderEmpList==='function')renderEmpList();
 }
 async function pushSchedWeek(locId,w){
   var cells=((S.sched[locId]||{})[w])||{};
@@ -2430,7 +2447,7 @@ document.getElementById('btnSaveEmp').onclick=()=>{
 };
 document.getElementById('btnDelEmp').onclick=async()=>{
   if(!(await askConfirm('למחוק את העובד? השיבוצים שלו יוסרו.')))return;
-  if(!isOwner(S.cur)){var _p=loc().employees.filter(function(e){return e.id!==editEmpId;});var _n=(loc().employees.find(function(e){return e.id===editEmpId;})||{}).name||'';sb.rpc('request_emp_change',{p_store:S.cur,p_emps:_p,p_note:'מחיקת עובד: '+_n}).then(function(r){toast(r&&r.error?'שגיאה בשליחת הבקשה':'נשלח לאישור הבעלים');});closeSheets();return;}
+  if(!isOwner(S.cur)){toast('מחיקת עובד מותרת לבעלים בלבד');return;}
   loc().employees=loc().employees.filter(e=>e.id!==editEmpId);
   const ws=S.sched[S.cur]||{};Object.values(ws).forEach(w=>{Object.keys(w).forEach(k=>{w[k]=w[k].filter(c=>c.empId!==editEmpId);});});
   const fx=(S.fixed||{})[S.cur]||{};Object.keys(fx).forEach(k=>{fx[k]=fx[k].filter(c=>c.empId!==editEmpId);});
