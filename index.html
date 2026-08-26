@@ -620,6 +620,7 @@ main{padding:12px}
   <div class="sheet-body" id="pickBody"></div>
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnPickNext">המשך</button>
+    <button class="btn btn-ghost" id="btnPickManual">✍️ הוספה ידנית</button>
     <button class="btn btn-ghost" id="btnPickPhone">📱 בחירה מאנשי הקשר של הטלפון</button>
     <button class="btn btn-ghost" onclick="openEmployees()">ביטול</button>
   </div>
@@ -2111,13 +2112,15 @@ document.getElementById('btnSmartPaste').onclick=openPicker;
 var pickSel={};
 function pickKey(c){return (c.name||'')+'|'+(c.phone||'');}
 function openPicker(){
-  var pb=(S.phonebook||[]);
-  if(!pb.length){startAddEmployees();return;}   // nothing imported yet — use the phone's own picker
   pickSel={};
   var inp=document.getElementById('pickSearch');
   inp.value='';inp.oninput=renderPicker;
   document.getElementById('btnPickNext').onclick=pickerNext;
-  document.getElementById('btnPickPhone').onclick=function(){closeSheets();startAddEmployees();};
+  var bp=document.getElementById('btnPickPhone');
+  if('contacts' in navigator){bp.hidden=false;bp.onclick=function(){closeSheets();startAddEmployees();};}
+  else{bp.hidden=true;}
+  var bm=document.getElementById('btnPickManual');
+  bm.onclick=function(){pickManual('');};
   renderPicker();openSheet('pickSheet');
 }
 function renderPicker(){
@@ -2129,7 +2132,26 @@ function renderPicker(){
   var n=Object.keys(pickSel).length;
   document.getElementById('pickSub').textContent =
     (n?('נבחרו '+n+' · '):'')+'מתוך '+pb.length+' אנשי קשר';
-  if(!list.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">לא נמצא "'+esc(q)+'"</p>';return;}
+  if(!pb.length){
+    body.innerHTML='<div style="text-align:center;padding:22px 12px">'
+      +'<div style="font-size:34px;margin-bottom:8px">📇</div>'
+      +'<div style="font-weight:700;margin-bottom:6px">ספר הטלפונים ריק</div>'
+      +'<div style="color:var(--muted);font-size:13.5px;line-height:1.6;margin-bottom:16px">'
+      +'טען את אנשי הקשר פעם אחת — ומאז החיפוש יעבוד תמיד.<br>'
+      +'באייפון: אנשי קשר ← בחירת כמה ← שיתוף ← שמירה לקבצים, ואז טען את הקובץ כאן.</div>'
+      +'<button class="btn btn-primary" id="pkImport" style="width:100%;margin-bottom:8px">📥 טעינת קובץ אנשי קשר (vcf)</button>'
+      +'<button class="btn btn-ghost" id="pkManual" style="width:100%">✍️ הוספת עובד ידנית</button>'
+      +'</div>';
+    document.getElementById('pkImport').onclick=function(){document.getElementById('pbFile').click();};
+    document.getElementById('pkManual').onclick=pickManual;
+    return;
+  }
+  if(!list.length){
+    body.innerHTML='<p style="text-align:center;color:var(--muted);padding:24px 10px">לא נמצא "'+esc(q)+'"</p>'
+      +'<button class="btn btn-ghost" id="pkManual2" style="width:100%">✍️ הוספה ידנית של "'+esc(q)+'"</button>';
+    document.getElementById('pkManual2').onclick=function(){pickManual(q);};
+    return;
+  }
   var shown=list.slice(0,200);
   body.innerHTML=shown.map(function(c){
     var k=pickKey(c);
@@ -2151,6 +2173,14 @@ function renderPicker(){
       renderPicker();
     };
   });
+}
+async function pickManual(pre){
+  var nm=await askText('שם העובד',pre||'','');
+  if(!nm||!nm.trim())return;
+  var ph=await askText('מספר טלפון (לא חובה)','','05X-XXXXXXX');
+  pickSel['manual|'+nm.trim()+'|'+Date.now()]={name:nm.trim(),phone:(ph||'').trim(),role:'cash'};
+  toast('נוסף לרשימה');
+  renderPicker();
 }
 function pickerNext(){
   var vals=Object.keys(pickSel).map(function(k){return pickSel[k];});
@@ -2410,7 +2440,10 @@ document.getElementById('pbFile').onchange=async(ev)=>{
   }
   ev.target.value='';
   S.phonebook.sort((a,b)=>a.name.localeCompare(b.name,'he'));
-  save(false);toast(n?'נטענו '+n+' אנשי קשר':'לא נמצאו אנשי קשר חדשים');renderPbList();
+  save(false);toast(n?'נטענו '+n+' אנשי קשר':'לא נמצאו אנשי קשר חדשים');
+  renderPbList();
+  var ps=document.getElementById('pickSheet');
+  if(ps&&ps.classList.contains('open'))renderPicker();
 };
 document.getElementById('btnPbClear').onclick=async()=>{
   if(!(await askConfirm('לנקות את כל ספר הטלפונים? (העובדים לא יימחקו)')))return;
