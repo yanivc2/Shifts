@@ -1681,7 +1681,8 @@ async function empsWrite(locId,desc){
   var d=res&&res.data;
   if(res&&res.error){
     revertEmps(locId);
-    toast('השמירה נכשלה — נסה שוב');
+    var m=(res.error&&(res.error.message||res.error.hint))||'';
+    toast('השמירה נכשלה'+(m?' — '+m:' — נסה שוב'));
     return;
   }
   if(d&&d.ok===false){
