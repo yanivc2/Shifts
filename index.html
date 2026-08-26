@@ -614,6 +614,17 @@ main{padding:12px}
   </div>
 </div>
 
+<div class="sheet" id="pickSheet">
+  <div class="sheet-head"><h2>➕ הוספת עובדים</h2><p id="pickSub">סמן/י את מי להוסיף</p>
+    <input class="srch" id="pickSearch" placeholder="🔍 חיפוש לפי שם או מספר"></div>
+  <div class="sheet-body" id="pickBody"></div>
+  <div class="sheet-foot">
+    <button class="btn btn-primary" id="btnPickNext">המשך</button>
+    <button class="btn btn-ghost" id="btnPickPhone">📱 בחירה מאנשי הקשר של הטלפון</button>
+    <button class="btn btn-ghost" onclick="openEmployees()">ביטול</button>
+  </div>
+</div>
+
 <div class="sheet" id="roleReviewSheet">
   <div class="sheet-head"><h2>בחירת תפקיד לעובדים</h2><p>בחר קופה או חנות לכל עובד לפני ההוספה</p></div>
   <div class="sheet-body" id="roleReviewBody"></div>
@@ -2096,7 +2107,57 @@ document.getElementById('btnEmps').onclick=openEmployees;
 document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
 
 /* ---- הדבקה חכמה: "דני לוי 0501234567" -> שם + טלפון ---- */
-document.getElementById('btnSmartPaste').onclick=()=>startAddEmployees();
+document.getElementById('btnSmartPaste').onclick=openPicker;
+var pickSel={};
+function pickKey(c){return (c.name||'')+'|'+(c.phone||'');}
+function openPicker(){
+  var pb=(S.phonebook||[]);
+  if(!pb.length){startAddEmployees();return;}   // nothing imported yet — use the phone's own picker
+  pickSel={};
+  var inp=document.getElementById('pickSearch');
+  inp.value='';inp.oninput=renderPicker;
+  document.getElementById('btnPickNext').onclick=pickerNext;
+  document.getElementById('btnPickPhone').onclick=function(){closeSheets();startAddEmployees();};
+  renderPicker();openSheet('pickSheet');
+}
+function renderPicker(){
+  var q=(document.getElementById('pickSearch').value||'').trim();
+  var body=document.getElementById('pickBody');
+  var pb=(S.phonebook||[]);
+  var emps=((loc()||{}).employees)||[];
+  var list=pb.filter(function(c){return !q||(c.name||'').indexOf(q)>-1||(c.phone||'').indexOf(q)>-1;});
+  var n=Object.keys(pickSel).length;
+  document.getElementById('pickSub').textContent =
+    (n?('נבחרו '+n+' · '):'')+'מתוך '+pb.length+' אנשי קשר';
+  if(!list.length){body.innerHTML='<p style="text-align:center;color:var(--muted);padding:30px 10px">לא נמצא "'+esc(q)+'"</p>';return;}
+  var shown=list.slice(0,200);
+  body.innerHTML=shown.map(function(c){
+    var k=pickKey(c);
+    var already=!!emps.find(function(e){return e.name===c.name;});
+    return '<div class="emp-item pickRow'+(already?'':' sel')+'" data-k="'+esc(k)+'"'+(already?' style="opacity:.5"':'')+'>'
+      +'<div class="emp-avatar">'+esc((c.name||'?').slice(0,1))+'</div>'
+      +'<div class="emp-info"><b>'+esc(c.name||'')+'</b><small>'+esc(c.phone||'ללא מספר')+'</small></div>'
+      +(already?'<span class="emp-btn" style="color:var(--ok)">✓ עובד</span>'
+              :'<span class="emp-btn pickMark" style="font-size:19px">'+(pickSel[k]?'☑':'☐')+'</span>')
+      +'</div>';
+  }).join('')+(list.length>200?'<p style="text-align:center;color:var(--muted);font-size:12.5px;padding:10px">מוצגים 200 ראשונים — חפש/י כדי לצמצם</p>':'');
+  body.querySelectorAll('.pickRow.sel').forEach(function(row){
+    row.onclick=function(){
+      var k=row.getAttribute('data-k');
+      if(pickSel[k])delete pickSel[k];else{
+        var c=pb.find(function(x){return pickKey(x)===k;});
+        if(c)pickSel[k]={name:c.name,phone:c.phone||'',role:'cash'};
+      }
+      renderPicker();
+    };
+  });
+}
+function pickerNext(){
+  var vals=Object.keys(pickSel).map(function(k){return pickSel[k];});
+  if(!vals.length){toast('לא נבחר אף אחד');return;}
+  pendingContacts=vals;
+  renderRoleReview();openSheet('roleReviewSheet');
+}
 document.getElementById('btnWaAvail').onclick=()=>openWaAvail();
 const WA_AVAIL_MSG='נא לשלוח זמינות למשמרות';
 let waShifts=[];
