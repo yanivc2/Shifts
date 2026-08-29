@@ -495,7 +495,7 @@ main{padding:12px}
   <div class="sheet-body" id="empBody"></div>
   <div class="sheet-foot">
     <button class="btn btn-primary" id="btnAddEmp">+ הוספת עובד</button>
-    <button class="btn btn-ghost" id="btnSmartPaste">➕ הוספת מספר עובדים</button>
+    <button class="btn btn-ghost" id="btnExportEmps">📤 ייצוא עובדים</button>
     <button class="btn btn-ghost" onclick="closeSheets()">סגירה</button>
   </div>
   <input type="file" id="restoreFile" accept=".json,application/json" style="display:none">
@@ -1900,6 +1900,23 @@ function askText(title,value,ph){return new Promise(res=>{
   document.getElementById('dlgOk').onclick=()=>{w.classList.remove('open');res(inp.value);};
   document.getElementById('dlgCancel').onclick=()=>{w.classList.remove('open');res(null);};
 });}
+function askChoice(title,opts){return new Promise(res=>{
+  var w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
+  document.getElementById('dlgTitle').textContent=title;
+  inp.style.display='none';
+  var box=document.getElementById('dlgChoices');
+  if(!box){box=document.createElement('div');box.id='dlgChoices';
+    inp.parentNode.insertBefore(box,inp.nextSibling);}
+  box.style.display='block';
+  box.innerHTML=opts.map(function(o){
+    return '<button class="btn btn-ghost dlgc" data-v="'+o.v+'" style="width:100%;margin-bottom:8px">'+o.t+'</button>';
+  }).join('');
+  w.classList.add('open');
+  var done=function(v){w.classList.remove('open');box.style.display='none';box.innerHTML='';inp.style.display='block';res(v);};
+  box.querySelectorAll('.dlgc').forEach(function(b){b.onclick=function(){done(b.getAttribute('data-v'));};});
+  document.getElementById('dlgOk').onclick=function(){done(null);};
+  document.getElementById('dlgCancel').onclick=function(){done(null);};
+});}
 function askPass(title){return new Promise(res=>{
   const w=document.getElementById('dlg'),inp=document.getElementById('dlgInput');
   document.getElementById('dlgTitle').textContent=title;
@@ -2109,7 +2126,53 @@ document.getElementById('btnEmps').onclick=openEmployees;
 document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
 
 /* ---- הדבקה חכמה: "דני לוי 0501234567" -> שם + טלפון ---- */
-document.getElementById('btnSmartPaste').onclick=openPicker;
+document.getElementById('btnExportEmps').onclick=exportEmps;
+function splitName(full){
+  var p=String(full||'').trim().split(/\s+/);
+  return {first:p.shift()||'', last:p.join(' ')};
+}
+function empRows(){
+  return (((loc()||{}).employees)||[]).map(function(e){
+    var n=splitName(e.name);
+    return {first:n.first,last:n.last,phone:(e.phone||'').trim()};
+  });
+}
+async function exportEmps(){
+  var rows=empRows();
+  if(!rows.length){toast('אין עובדים לייצוא');return;}
+  var how=await askChoice('ייצוא '+rows.length+' עובדים',[
+    {v:'wa',t:'💬 שליחה בוואטסאפ'},
+    {v:'xl',t:'📊 קובץ אקסל'}]);
+  if(!how)return;
+  var storeName=(loc()||{}).name||'';
+  if(how==='wa'){
+    var txt='רשימת עובדים · '+storeName+'\n\n'+rows.map(function(r,i){
+      return (i+1)+'. '+[r.first,r.last].filter(Boolean).join(' ')+(r.phone?' — '+r.phone:'');
+    }).join('\n');
+    if(navigator.share){try{await navigator.share({text:txt});return;}catch(e){if(e&&e.name==='AbortError')return;}}
+    window.open('https://wa.me/?text='+encodeURIComponent(txt));
+    return;
+  }
+  var csv='\ufeff'+['שם פרטי','שם משפחה','טלפון'].join(',')+'\n'+
+    rows.map(function(r){
+      return [r.first,r.last,r.phone].map(function(c){
+        c=String(c==null?'':c);
+        return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;
+      }).join(',');
+    }).join('\n');
+  var fname='עובדים - '+storeName+'.csv';
+  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  if(navigator.canShare&&window.File){
+    try{
+      var f=new File([blob],fname,{type:'text/csv'});
+      if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fname});return;}
+    }catch(e){if(e&&e.name==='AbortError')return;}
+  }
+  var url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=fname;document.body.appendChild(a);a.click();
+  setTimeout(function(){URL.revokeObjectURL(url);a.remove();},400);
+  toast('הקובץ ירד');
+}
 var pickSel={};
 function pickKey(c){return (c.name||'')+'|'+(c.phone||'');}
 function openPicker(){
