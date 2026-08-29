@@ -2127,6 +2127,49 @@ document.getElementById('btnAddEmp').onclick=()=>openEmpForm(null);
 
 /* ---- הדבקה חכמה: "דני לוי 0501234567" -> שם + טלפון ---- */
 document.getElementById('btnExportEmps').onclick=exportEmps;
+// minimal xlsx writer: stored-zip + inline strings. no dependencies.
+function crcTable(){var t=[],c,n,k;for(n=0;n<256;n++){c=n;for(k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0;}return t;}
+var CRCT=crcTable();
+function crc32(b){var c=0xFFFFFFFF;for(var i=0;i<b.length;i++)c=CRCT[(c^b[i])&0xFF]^(c>>>8);return (c^0xFFFFFFFF)>>>0;}
+function u8(s){return new TextEncoder().encode(s);}
+function w2(a,v){a.push(v&255,(v>>8)&255);}
+function w4(a,v){a.push(v&255,(v>>8)&255,(v>>16)&255,(v>>24)&255);}
+function zip(files){
+  var out=[],cd=[],off=0;
+  files.forEach(function(f){
+    var data=u8(f.data),crc=crc32(data),n=u8(f.name);
+    var h=[];w4(h,0x04034b50);w2(h,20);w2(h,0x0800);w2(h,0);w2(h,0);w2(h,0);
+    w4(h,crc);w4(h,data.length);w4(h,data.length);w2(h,n.length);w2(h,0);
+    out.push(new Uint8Array(h),n,data);
+    var c=[];w4(c,0x02014b50);w2(c,20);w2(c,20);w2(c,0x0800);w2(c,0);w2(c,0);w2(c,0);
+    w4(c,crc);w4(c,data.length);w4(c,data.length);w2(c,n.length);w2(c,0);w2(c,0);w2(c,0);w2(c,0);w4(c,0);w4(c,off);
+    cd.push(new Uint8Array(c),n);
+    off+=h.length+n.length+data.length;
+  });
+  var cdLen=cd.reduce(function(a,b){return a+b.length;},0);
+  var e=[];w4(e,0x06054b50);w2(e,0);w2(e,0);w2(e,files.length);w2(e,files.length);w4(e,cdLen);w4(e,off);w2(e,0);
+  var parts=out.concat(cd,[new Uint8Array(e)]);
+  var total=parts.reduce(function(a,b){return a+b.length;},0);
+  var buf=new Uint8Array(total),p=0;
+  parts.forEach(function(x){buf.set(x,p);p+=x.length;});
+  return buf;
+}
+function xesc(s){return String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+function colName(i){var s='';i++;while(i>0){var m=(i-1)%26;s=String.fromCharCode(65+m)+s;i=(i-m-1)/26;}return s;}
+function buildXlsx(rows,sheetName){
+  var body=rows.map(function(r,ri){
+    return '<row r="'+(ri+1)+'">'+r.map(function(v,ci){
+      return '<c r="'+colName(ci)+(ri+1)+'" t="inlineStr"><is><t xml:space="preserve">'+xesc(v)+'</t></is></c>';
+    }).join('')+'</row>';
+  }).join('');
+  return zip([
+   {name:'[Content_Types].xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/></Types>'},
+   {name:'_rels/.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'},
+   {name:'xl/workbook.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="'+xesc(sheetName||'Sheet1')+'" sheetId="1" r:id="rId1"/></sheets></workbook>'},
+   {name:'xl/_rels/workbook.xml.rels',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/></Relationships>'},
+   {name:'xl/worksheets/sheet1.xml',data:'<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><sheetData>'+body+'</sheetData></worksheet>'}
+  ]);
+}
 function splitName(full){
   var p=String(full||'').trim().split(/\s+/);
   return {first:p.shift()||'', last:p.join(' ')};
@@ -2138,34 +2181,31 @@ function empRows(){
   });
 }
 async function exportEmps(){
-  var rows=empRows();
-  if(!rows.length){toast('אין עובדים לייצוא');return;}
-  var how=await askChoice('ייצוא '+rows.length+' עובדים',[
+  var rowsSrc=empRows();
+  if(!rowsSrc.length){toast('אין עובדים לייצוא');return;}
+  var how=await askChoice('ייצוא '+rowsSrc.length+' עובדים',[
     {v:'wa',t:'💬 שליחה בוואטסאפ'},
     {v:'xl',t:'📊 קובץ אקסל'}]);
   if(!how)return;
   var storeName=(loc()||{}).name||'';
   if(how==='wa'){
-    var txt='רשימת עובדים · '+storeName+'\n\n'+rows.map(function(r,i){
+    var txt='רשימת עובדים · '+storeName+'\n\n'+rowsSrc.map(function(r,i){
       return (i+1)+'. '+[r.first,r.last].filter(Boolean).join(' ')+(r.phone?' — '+r.phone:'');
     }).join('\n');
     if(navigator.share){try{await navigator.share({text:txt});return;}catch(e){if(e&&e.name==='AbortError')return;}}
     window.open('https://wa.me/?text='+encodeURIComponent(txt));
     return;
   }
-  var csv='\ufeff'+['שם פרטי','שם משפחה','טלפון'].join(',')+'\n'+
-    rows.map(function(r){
-      return [r.first,r.last,r.phone].map(function(c){
-        c=String(c==null?'':c);
-        return /[",\n]/.test(c)?'"'+c.replace(/"/g,'""')+'"':c;
-      }).join(',');
-    }).join('\n');
-  var fname='עובדים - '+storeName+'.csv';
-  var blob=new Blob([csv],{type:'text/csv;charset=utf-8;'});
+  var rows=[['שם פרטי','שם משפחה','טלפון']].concat(
+    rowsSrc.map(function(r){return [r.first,r.last,r.phone];}));
+  var buf=buildXlsx(rows,'עובדים');
+  var fname='עובדים - '+storeName+'.xlsx';
+  var blob=new Blob([buf],{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+  // iOS shares the title instead of the file when both are given — send the file alone
   if(navigator.canShare&&window.File){
     try{
-      var f=new File([blob],fname,{type:'text/csv'});
-      if(navigator.canShare({files:[f]})){await navigator.share({files:[f],title:fname});return;}
+      var f=new File([blob],fname,{type:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'});
+      if(navigator.canShare({files:[f]})){await navigator.share({files:[f]});return;}
     }catch(e){if(e&&e.name==='AbortError')return;}
   }
   var url=URL.createObjectURL(blob),a=document.createElement('a');
