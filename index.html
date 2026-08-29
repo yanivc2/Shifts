@@ -1961,7 +1961,7 @@ function askConfirm(title){return new Promise(res=>{
 
 /* ================= Render main ================= */
 function render(){
-  var _st=document.getElementById('btnSettings');if(_st)_st.style.display=canManage(S.cur)?'flex':'none';
+  var _st=document.getElementById('btnSettings');if(_st)_st.style.display='flex';
   const tabs=document.getElementById('locTabs');tabs.innerHTML='';
   S.locations.forEach(l=>{
     const b=document.createElement('button');b.className='loc-tab'+(l.id===S.cur?' active':'');b.textContent=l.name;
@@ -2725,7 +2725,15 @@ async function showWhoAmI(){
       : 'מחובר כ: '+em) : '';
   }catch(e){}
 }
-document.getElementById('btnSettings').onclick=function(){if(!canManage(S.cur)){toast('ההגדרות זמינות לבעלים ולשותפים בלבד');return;}openSheet('setSheet');showWhoAmI();};
+document.getElementById('btnSettings').onclick=function(){
+  var full=canManage(S.cur);
+  ['btnManage','btnBackup','btnRestore','btnImportCloud'].forEach(function(id){
+    var el=document.getElementById(id); if(el)el.style.display=full?'block':'none';
+  });
+  var sub=document.querySelector('#setSheet .sheet-head p');
+  if(sub)sub.textContent=full?'ניהול שותפים וגיבוי הנתונים':'השפה, ערכת הנושא והסיסמה שלך';
+  openSheet('setSheet');showWhoAmI();
+};
 /* ---- Availability self-fill link + submissions (phase 3, owner side) ---- */
 async function getAvailToken(locId){const {data,error}=await sb.from('store_tokens').select('token').eq('store_id',locId).order('created_at',{ascending:false}).limit(1);if(error)throw error;return (data&&data[0]&&data[0].token)||null;}
 async function createAvailToken(locId){const {data,error}=await sb.rpc('create_avail_token',{p_store:locId});if(error)throw error;return data;}
