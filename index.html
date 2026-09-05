@@ -107,7 +107,7 @@ main{padding:12px}
 .empty-hint{color:var(--muted);font-size:13px}
 
 /* ---------- Bottom action bar ---------- */
-.actionbar{position:fixed;bottom:0;right:0;left:0;background:var(--card);border-top:1px solid var(--line);display:flex;gap:6px;padding:10px 8px calc(10px + env(safe-area-inset-bottom));z-index:30}
+.actionbar{position:fixed;bottom:0;right:0;left:0;background:var(--card);border-top:1px solid var(--line);display:flex;gap:6px;padding:10px 8px calc(10px + env(safe-area-inset-bottom));z-index:30;transform:translateZ(0);will-change:transform;-webkit-backface-visibility:hidden;backface-visibility:hidden}
 .act{flex:1;padding:10px 2px;border-radius:12px;font-size:11.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;background:var(--bg);color:var(--brand)}
 .tabbar{gap:4px}
 .tab{flex:1;padding:9px 2px;border-radius:999px;font-size:11.5px;font-weight:700;display:flex;flex-direction:column;align-items:center;gap:2px;background:transparent;color:var(--muted)}
@@ -3146,8 +3146,22 @@ function buildGridScreen(){
   html+='</tbody></table>';
   g.innerHTML=html;
 }
-function openGrid(){closeSheets(true);buildGridScreen();fillGsLoc();document.getElementById('gridScreen').classList.add('open');goFullscreen();}
-function closeGrid(){exitFullscreen();document.getElementById('gridScreen').classList.remove('open');render();}
+function openGrid(){
+  /* must be a FULL close: reached from inside the שונות sheet, where the scroll is locked
+     and the overlay is up. closeSheets(true) skipped both and froze the page. */
+  document.querySelectorAll('.sheet').forEach(function(x){x.classList.remove('open');});
+  document.getElementById('overlay').classList.remove('open');
+  unlockScroll();
+  buildGridScreen();fillGsLoc();
+  document.getElementById('gridScreen').classList.add('open');goFullscreen();
+}
+function closeGrid(){
+  exitFullscreen();
+  document.getElementById('gridScreen').classList.remove('open');
+  document.getElementById('overlay').classList.remove('open');
+  unlockScroll();
+  render();
+}
 function fillGsLoc(){
   var sel=document.getElementById('gsLoc');if(!sel)return;
   sel.innerHTML=S.locations.map(function(l){
@@ -3168,6 +3182,17 @@ function exitFullscreen(){try{if(document.fullscreenElement&&document.exitFullsc
 document.getElementById('btnGrid').onclick=openGrid;
 /* גיבוי מיידי ליציאה/מעבר-רקע - שלא ילך מידע שלא נשמר */
 ['pagehide','visibilitychange'].forEach(ev=>window.addEventListener(ev,()=>{try{localStorage.setItem('sched-v1',JSON.stringify(S));}catch(e){}}));
+/* safety net: never leave the page frozen if no sheet or grid is actually open */
+setInterval(function(){
+  try{
+    if(document.body.style.position!=='fixed')return;
+    if(document.querySelector('.sheet.open'))return;
+    if(document.getElementById('gridScreen').classList.contains('open'))return;
+    if(document.getElementById('dlg').classList.contains('open'))return;
+    document.getElementById('overlay').classList.remove('open');
+    unlockScroll();
+  }catch(e){}
+},1200);
 /* משיכה מטה מראש העמוד = רענון (עוקף cache; כל שינוי כבר נשמר מיידית) */
 (function(){
   var sY=null,dist=0,active=false,TH=80;
