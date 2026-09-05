@@ -222,6 +222,8 @@ main{padding:12px}
 #gridScreen.open{display:flex}
 .gs-top{display:flex;align-items:center;gap:6px;padding:calc(8px + env(safe-area-inset-top)) 12px 8px;background:var(--brand);color:var(--onacc);flex:0 0 auto}
 .gs-top h2{font-size:14px;flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.gs-top select{background:rgba(255,255,255,.18);color:var(--onacc);border:0;border-radius:8px;padding:8px 9px;font-size:13px;font-weight:800;max-width:34vw}
+.gs-top select option{color:#111;background:#fff}
 .gs-top button{background:rgba(255,255,255,.18);color:var(--onacc);border:0;border-radius:8px;padding:8px 11px;font-size:16px;font-weight:800;line-height:1}
 .gs-hint{background:var(--brand-soft);color:var(--brand);font-size:12.5px;font-weight:600;text-align:center;padding:6px;flex:0 0 auto}
 @media(orientation:landscape){.gs-hint{display:none}}
@@ -441,6 +443,7 @@ main{padding:12px}
 <button id="btnEmps" style="display:none" aria-hidden="true"></button>
 <div class="actionbar tabbar">
   <button class="tab on" id="tabSched"><span>🗓️</span>הסידור</button>
+  <button class="tab" id="tabShare"><span>📤</span>שיתוף</button>
   <button class="tab" id="tabTeam"><span>👥</span>הצוות</button>
   <button class="tab" id="tabAvail"><span>✋</span>שונות</button>
   <button class="tab" id="tabMore"><span>⋯</span>עוד</button>
@@ -706,6 +709,7 @@ main{padding:12px}
   <div class="gs-top">
     <button onclick="gridPrev()">‹</button>
     <button onclick="gridNext()">›</button>
+    <select id="gsLoc" title="החלפת סניף"></select>
     <h2 id="gsTitle"></h2>
     <button onclick="gridShare()">📤</button>
     <button onclick="closeGrid()">✕</button>
@@ -1862,24 +1866,51 @@ function getCell(di,sh){
   return getFix(di,sh).map(a=>({...a}));
 }
 
-/* קופה קודם + עובד בוקר שממשיך אחרי 21:00 מוצג גם בערב */
-function shiftEndsLate(hrs){
-  if(!hrs)return false;
-  var m=String(hrs).match(/(\d{1,2})(?::\d{2})?\s*[-\u2013]\s*(\d{1,2})(?::\d{2})?/);
-  if(!m)return false;
-  var s=parseInt(m[1],10),e=parseInt(m[2],10);
-  if(isNaN(s)||isNaN(e)||s===e)return false;
-  return e<s?true:e>=21;
+/* חלונות המשמרות: בוקר 08:00-16:00 | ערב 16:00-23:00 | לילה 23:00-08:00 (חוצה חצות) */
+var SHIFT_WIN={m:[480,960],e:[960,1380],n:[1380,1920]};
+var SHIFT_ICO={m:'\u2600\ufe0f',e:'\ud83c\udf07',n:'\ud83c\udf19'};
+function hhm(h,mm){return h*60+(mm||0);}
+/* שעות העובד -> {s,e} בדקות. null = אין שעת סיום, אי אפשר לחשב גלישה */
+function parseHrs(hrs,shId){
+  if(hrs==null)return null;
+  var t=String(hrs).trim(); if(!t)return null;
+  var win=SHIFT_WIN[shId]||null;
+  var m=t.match(/(\d{1,2})(?::(\d{2}))?\s*[-\u2013\u2014]\s*(\d{1,2})(?::(\d{2}))?/);
+  if(m){
+    var a=hhm(+m[1],+m[2]||0),b=hhm(+m[3],+m[4]||0);
+    if(b<=a)b+=1440;
+    return {s:a,e:b};
+  }
+  var only=t.match(/^\D*?(\d{1,2})(?::(\d{2}))?\D*$/);
+  if(only&&/\u05e2\u05d3/.test(t)&&win){          /* "עד 19" */
+    var v=hhm(+only[1],+only[2]||0);
+    return {s:win[0],e:v<=win[0]?v+1440:v};
+  }
+  return null;
+}
+/* דקות חפיפה בתוך אותו יום בלבד. נגיעה בקצה אינה חפיפה.
+   בכוונה בלי גלגול של 24 שעות: עובד בוקר שמתחיל ב-07:00 חופף למשמרת הלילה
+   של אתמול, לא לזו של היום, ולכן אין להציג אותו בתא הלילה של היום. */
+function ovMin(a,win){
+  var v=Math.min(a.e,win[1])-Math.max(a.s,win[0]);
+  return v>0?v:0;
 }
 function sortRole(arr){
   return arr.map(function(a,i){return [a,i];}).sort(function(x,y){var rx=x[0].role==='store'?1:0,ry=y[0].role==='store'?1:0;return rx-ry||x[1]-y[1];}).map(function(p){return p[0];});
 }
 function displayCell(di,shId){
   var base=sortRole(getCell(di,shId).map(function(a){return {empId:a.empId,role:a.role,hrs:a.hrs,derived:false};}));
-  if(shId!=='e')return base;
+  var win=SHIFT_WIN[shId]; if(!win)return base;
   var have={};base.forEach(function(a){have[a.empId]=1;});
   var spill=[];
-  getCell(di,'m').forEach(function(a){if(shiftEndsLate(a.hrs)&&!have[a.empId]){have[a.empId]=1;spill.push({empId:a.empId,role:a.role,hrs:a.hrs,derived:true});}});
+  ['m','e','n'].forEach(function(o){
+    if(o===shId||!SHIFT_WIN[o])return;
+    getCell(di,o).forEach(function(a){
+      if(have[a.empId])return;
+      var p=parseHrs(a.hrs,o);
+      if(p&&ovMin(p,win)>0){have[a.empId]=1;spill.push({empId:a.empId,role:a.role,hrs:a.hrs,derived:true,from:o});}
+    });
+  });
   return base.concat(sortRole(spill));
 }
 function setCell(di,sh,arr){if(typeof guardLocked==='function'&&guardLocked())return;S.sched[S.cur]=S.sched[S.cur]||{};S.sched[S.cur][wkKey()]=S.sched[S.cur][wkKey()]||{};S.sched[S.cur][wkKey()][cellKey(di,sh)]=arr;save({t:'sched',di:di,sh:sh});}
@@ -1990,7 +2021,7 @@ function render(){
         const chip=document.createElement('button');
         chip.className='emp-chip'+(a.derived?' derived':'')+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
         var _ini=(emp.name||'').trim().charAt(0)||'?';
-        chip.innerHTML='<span class="av'+(a.role==='store'?' store':'')+'">'+_ini+'</span>'+(a.derived?'☀️ ':(isFixed(emp.id,di,sh.id)?'📌 ':''))+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
+        chip.innerHTML='<span class="av'+(a.role==='store'?' store':'')+'">'+_ini+'</span>'+(a.derived?((SHIFT_ICO[a.from]||'☀️')+' '):(isFixed(emp.id,di,sh.id)?'📌 ':''))+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
         chip.onclick=()=>openCell(di,sh.id);
         body.appendChild(chip);
       });
@@ -2706,11 +2737,22 @@ document.getElementById('btnInvite').onclick=async function(){
   b.disabled=false;
 };
 function setTab(id){
-  ['tabSched','tabTeam','tabAvail','tabMore'].forEach(function(t){
+  ['tabSched','tabShare','tabTeam','tabAvail','tabMore'].forEach(function(t){
     var el=document.getElementById(t);if(el)el.classList.toggle('on',t===id);
   });
 }
-document.getElementById('tabSched').onclick=function(){closeSheets();setTab('tabSched');};
+document.getElementById('tabSched').onclick=function(){
+  var gridOpen=document.getElementById('gridScreen').classList.contains('open');
+  if(gridOpen){closeGrid();setTab('tabSched');return;}
+  var sheetOpen=!!document.querySelector('.sheet.open');
+  var onSched=document.getElementById('tabSched').classList.contains('on');
+  if(sheetOpen||!onSched){closeSheets();setTab('tabSched');return;}
+  openGrid();
+};
+document.getElementById('tabShare').onclick=function(){
+  setTab('tabSched');
+  document.getElementById('btnShare').onclick();
+};
 document.getElementById('tabTeam').onclick=function(){setTab('tabTeam');document.getElementById('btnEmps').click();};
 document.getElementById('btnPush').onclick=function(){enablePush(null);};
 document.getElementById('btnPhoneBook').onclick=function(){openPhonebook();};
@@ -2979,7 +3021,7 @@ function buildPrint(){
       html+='<td>';
       displayCell(di,sh.id).forEach(a=>{
         const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
-        html+='<div class="pemp'+(a.derived?' derived':'')+'">'+(a.derived?'☀️ ':'')+emp.name+(a.hrs?' <span style="font-size:11px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</i></div>';
+        html+='<div class="pemp'+(a.derived?' derived':'')+'">'+(a.derived?((SHIFT_ICO[a.from]||'☀️')+' '):'')+emp.name+(a.hrs?' <span style="font-size:11px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</i></div>';
       });
       html+='</td>';
     });
@@ -3023,7 +3065,7 @@ function buildGridScreen(){
       if(!cell.length)html+='<span class="gempty">+</span>';
       cell.forEach(function(a){
         var emp=loc().employees.find(function(e){return e.id===a.empId;});if(!emp)return;
-        html+='<div class="gemp'+(a.derived?' derived':'')+'">'+(a.derived?'☀️':(isFixed(emp.id,di,sh.id)?'📌':''))+emp.name+(a.hrs?' <span style="font-size:10px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
+        html+='<div class="gemp'+(a.derived?' derived':'')+'">'+(a.derived?(SHIFT_ICO[a.from]||'☀️'):(isFixed(emp.id,di,sh.id)?'📌':''))+emp.name+(a.hrs?' <span style="font-size:10px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
       });
       html+='</td>';
     });
@@ -3032,8 +3074,20 @@ function buildGridScreen(){
   html+='</tbody></table>';
   g.innerHTML=html;
 }
-function openGrid(){closeSheets();buildGridScreen();document.getElementById('gridScreen').classList.add('open');goFullscreen();}
-function closeGrid(){exitFullscreen();document.getElementById('gridScreen').classList.remove('open');}
+function openGrid(){closeSheets(true);buildGridScreen();fillGsLoc();document.getElementById('gridScreen').classList.add('open');goFullscreen();}
+function closeGrid(){exitFullscreen();document.getElementById('gridScreen').classList.remove('open');render();}
+function fillGsLoc(){
+  var sel=document.getElementById('gsLoc');if(!sel)return;
+  sel.innerHTML=S.locations.map(function(l){
+    return '<option value="'+l.id+'"'+(l.id===S.cur?' selected':'')+'>'+esc(l.name)+'</option>';
+  }).join('');
+  sel.style.display=S.locations.length>1?'':'none';
+  sel.onchange=function(){
+    S.cur=sel.value;save(false);
+    buildGridScreen();
+    if(typeof loadPublished==='function')loadPublished();
+  };
+}
 function gridPrev(){weekStart.setDate(weekStart.getDate()-7);render();}
 function gridNext(){weekStart.setDate(weekStart.getDate()+7);render();}
 function gridShare(){document.getElementById('btnShare').onclick();}
