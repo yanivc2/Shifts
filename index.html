@@ -1566,7 +1566,7 @@ async function enablePush(empToken){
       if(r2.error)throw r2.error;
     }
     toast('התראות הופעלו ✓');
-  }catch(e){toast('הפעלת ההתראות נכשלה');}
+  }catch(e){toast('הפעלת ההתראות נכשלה: '+((e&&(e.message||e.msg))||e));}
 }
 /* ---------- Theme palettes ---------- */
 var THEMES=[
