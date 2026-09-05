@@ -1067,13 +1067,35 @@ async function loadTasks(){
   var box=document.getElementById('taskBody');if(!box)return;
   box.innerHTML='<p style="color:var(--muted)">טוען…</p>';
   try{
-    var r=await sb.from('tasks').select('id,emp_name,title,detail,needs_photo,due_date,status,done_at,photo_url,done_by_name')
+    var r=await sb.from('tasks').select('id,emp_name,title,detail,needs_photo,due_date,status,done_at,photo_url,done_by_name,kind,shift_id')
       .eq('store_id',S.cur).order('created_at',{ascending:false}).limit(80);
     if(r.error)throw r.error;
     var list=r.data||[];
-    var open=list.filter(function(t){return t.status==='open';});
-    var done=list.filter(function(t){return t.status==='done';});
-    var h='<div class="sec-t">פתוחות ('+open.length+')</div>';
+    var rec=list.filter(function(t){return t.kind&&t.kind!=='once';});
+    var one=list.filter(function(t){return !t.kind||t.kind==='once';});
+    var open=one.filter(function(t){return t.status==='open';});
+    var done=one.filter(function(t){return t.status==='done';});
+    var today={};
+    try{var rt=await sb.rpc('mgr_tasks_today',{p_store:S.cur});
+        (rt.data||[]).forEach(function(x){today[x.id]=x;});}catch(e){}
+    var h='';
+    if(rec.length){
+      h+='<div class="sec-t">קבועות — מצב היום ('+rec.length+')</div>';
+      h+=rec.map(function(t){
+        var st=today[t.id]||{},ok=!!st.done;
+        var scope=t.kind==='shift'?('כל יום · '+(SHNAME[t.shift_id]||''))
+                 :t.kind==='emp'?('כל יום שעובד · '+(t.emp_name||''))
+                 :t.kind==='dated'?((t.due_date||'')+' · '+(SHNAME[t.shift_id]||''))
+                 :'במשמרת שרצה כעת';
+        return '<div class="sub-row"'+(ok?' style="border-color:var(--ok);background:var(--ok-bg)"':'')+'>'+
+          '<div class="si"><b>'+(ok?'✓ ':'')+esc(t.title)+'</b><small>'+esc(scope)+' · '+
+          (ok?('בוצע היום'+(st.done_by_name?' ע"י '+esc(st.done_by_name):'')):'טרם בוצע היום')+
+          (t.needs_photo?' · 📷':'')+'</small></div>'+
+          (st.photo_url?'<a class="sub-act ghost" target="_blank" rel="noopener" href="'+esc(st.photo_url)+'">צילום</a>':'')+
+          '<button class="sub-act ghost" data-tx="'+t.id+'">מחיקה</button></div>';
+      }).join('');
+    }
+    h+='<div class="sec-t">חד־פעמיות פתוחות ('+open.length+')</div>';
     h+=open.length?open.map(function(t){
       return '<div class="sub-row"><div class="si"><b>'+esc(t.title)+'</b><small>'+
         esc(t.emp_name||'👥 כל הצוות')+(t.due_date?' · '+t.due_date:'')+(t.needs_photo?' · 📷 דרוש צילום':'')+
@@ -1099,37 +1121,86 @@ async function loadTasks(){
     document.getElementById('taskAdd').onclick=addTask;
   }catch(e){box.innerHTML='<p style="color:var(--no)">שגיאה בטעינת המשימות</p>';}
 }
+var TKIND={once:'חד־פעמית',shift:'קבועה למשמרת',emp:'קבועה לעובד',dated:'לתאריך',now:'עכשיו'};
+var SHNAME={m:'בוקר',e:'ערב',n:'לילה'};
+function todayStr(){var d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+function pickRow(label,sub,attr,val){
+  return '<button class="sub-row" style="width:100%;text-align:right" '+attr+'="'+val+'"><div class="si"><b>'+esc(label)+'</b>'+(sub?'<small>'+esc(sub)+'</small>':'')+'</div></button>';
+}
 async function addTask(){
-  var title=await askText('מה המשימה?','','לדוגמה: סידור מדף חלב');if(!title)return;
+  var box=document.getElementById('taskBody');
+  var kind=await new Promise(function(res){
+    box.innerHTML='<div class="sec-t">איזה סוג משימה?</div>'
+      +pickRow('חד־פעמית','משימה אחת. נעלמת אחרי שבוצעה','data-tk','once')
+      +pickRow('קבועה למשמרת','חוזרת כל יום באותה משמרת. מספיק שאחד סימן','data-tk','shift')
+      +pickRow('קבועה לעובד','חוזרת בכל יום שהעובד עובד','data-tk','emp')
+      +pickRow('לתאריך מסוים','יום אחד ומשמרת אחת','data-tk','dated')
+      +pickRow('עכשיו','למי שנמצא במשמרת שרצה כרגע. להיום בלבד','data-tk','now');
+    box.querySelectorAll('[data-tk]').forEach(function(b){b.onclick=function(){res(b.getAttribute('data-tk'));};});
+  });
+  var title=await askText('מה המשימה?','','לדוגמה: סידור מדף חלב');if(!title){loadTasks();return;}
   var detail=await askText('פירוט (לא חובה)','','');
   var photo=await askConfirm('לדרוש מהעובד לצלם את התוצאה?');
+  var rec={store_id:S.cur,title:title,detail:detail||null,needs_photo:!!photo,kind:kind,status:'open'};
   var emps=(loc()||{}).employees||[];
-  var box=document.getElementById('taskBody');
-  box.innerHTML='<div class="sec-t">למי לשייך?</div>'+
-    '<button class="sub-row" style="width:100%;text-align:right" data-tn="-1"><div class="si"><b>כל הצוות</b><small>כל עובד יראה אותה ויוכל לסמן שבוצעה</small></div></button>'+
-    emps.map(function(e,i){return '<button class="sub-row" style="width:100%;text-align:right" data-tn="'+i+'"><div class="si"><b>'+esc(e.name)+'</b></div></button>';}).join('');
-  box.querySelectorAll('[data-tn]').forEach(function(b){
-    b.onclick=async function(){
-      var i=+b.getAttribute('data-tn'),e=(i>=0)?emps[i]:null;
-      try{
-        var r=await sb.from('tasks').insert({store_id:S.cur,emp_id:e?e.id:null,emp_name:e?e.name:null,
-          title:title,detail:detail||null,needs_photo:!!photo,due_date:new Date().toISOString().slice(0,10)});
-        if(r.error)throw r.error;toast('המשימה נוצרה ✓');
-      }catch(err){toast('היצירה נכשלה');}
-      loadTasks();
-    };
-  });
+
+  async function pickShift(msg){
+    return await new Promise(function(res){
+      box.innerHTML='<div class="sec-t">'+esc(msg)+'</div>'
+        +pickRow('☀️ בוקר','08:00-16:00','data-ts','m')
+        +pickRow('🌇 ערב','16:00-23:00','data-ts','e')
+        +pickRow('🌙 לילה','23:00-08:00','data-ts','n');
+      box.querySelectorAll('[data-ts]').forEach(function(b){b.onclick=function(){res(b.getAttribute('data-ts'));};});
+    });
+  }
+  async function pickEmp(){
+    return await new Promise(function(res){
+      box.innerHTML='<div class="sec-t">לאיזה עובד?</div>'
+        +emps.map(function(e,i){return pickRow(e.name,'','data-tn',i);}).join('');
+      box.querySelectorAll('[data-tn]').forEach(function(b){b.onclick=function(){res(emps[+b.getAttribute('data-tn')]);};});
+    });
+  }
+
+  if(kind==='shift'){ rec.shift_id=await pickShift('באיזו משמרת, כל יום?'); }
+  else if(kind==='emp'){ var e1=await pickEmp(); rec.emp_id=e1.id; rec.emp_name=e1.name; }
+  else if(kind==='dated'){
+    var d=await askDate('לאיזה תאריך?',todayStr()); if(!d){loadTasks();return;}
+    rec.due_date=d; rec.shift_id=await pickShift('באיזו משמרת באותו יום?');
+  }
+  else if(kind==='now'){ rec.due_date=todayStr(); }
+  else {
+    rec.due_date=todayStr();
+    var who=await new Promise(function(res){
+      box.innerHTML='<div class="sec-t">למי לשייך?</div>'
+        +pickRow('כל הצוות','כל עובד יראה אותה ויוכל לסמן שבוצעה','data-tn','-1')
+        +emps.map(function(e,i){return pickRow(e.name,'','data-tn',i);}).join('');
+      box.querySelectorAll('[data-tn]').forEach(function(b){b.onclick=function(){res(+b.getAttribute('data-tn'));};});
+    });
+    if(who>=0){rec.emp_id=emps[who].id;rec.emp_name=emps[who].name;}
+  }
+  try{
+    var r=await sb.from('tasks').insert(rec);
+    if(r.error)throw r.error;toast('המשימה נוצרה ✓');
+  }catch(err){toast('היצירה נכשלה: '+((err&&err.message)||err));}
+  loadTasks();
 }
 /* ---------- Employee: tasks and procedures ---------- */
 async function loadMeTasks(){
   var box=document.getElementById('meTasks');if(!box)return;
   try{
-    var r=await sb.rpc('emp_tasks_lang',{p_token:_meTok,p_lang:langGet()});if(r.error)throw r.error;
+    var r=await sb.rpc('emp_tasks_today',{p_token:_meTok,p_lang:langGet()});
+    if(r.error){r=await sb.rpc('emp_tasks_lang',{p_token:_meTok,p_lang:langGet()});if(r.error)throw r.error;}
     var list=r.data||[];
-    if(!list.length){box.innerHTML='<p style="color:var(--muted);font-size:13px">אין משימות פתוחות.</p>';return;}
+    if(!list.length){box.innerHTML='<p style="color:var(--muted);font-size:13px">אין משימות להיום.</p>';return;}
     box.innerHTML=list.map(function(t,i){
-      return '<div class="sub-row"><div class="si"><b>'+esc(t.title)+'</b><small>'+
-        esc(t.detail||'')+(t.needs_photo?(t.detail?' · ':'')+'📷 יש לצלם':'')+'</small></div>'+
+      var tag=t.kind==='shift'?'🔁 כל '+((SHNAME&&SHNAME[t.shift_id])||'משמרת')
+             :t.kind==='emp'?'🔁 בכל יום עבודה'
+             :t.kind==='now'?'⚡ עכשיו':'';
+      var meta=[t.detail||'',tag,(t.needs_photo?'📷 יש לצלם':'')].filter(Boolean).join(' · ');
+      if(t.done)return '<div class="sub-row" style="border-color:var(--ok);background:var(--ok-bg)">'+
+        '<div class="si"><b>✓ '+esc(t.title)+'</b><small>'+
+        (t.done_by_name?'בוצע היום ע"י '+esc(t.done_by_name):'בוצע היום')+'</small></div></div>';
+      return '<div class="sub-row"><div class="si"><b>'+esc(t.title)+'</b><small>'+esc(meta)+'</small></div>'+
         '<button class="sub-act" data-tk="'+i+'">בוצע</button></div>';
     }).join('');
     box.querySelectorAll('[data-tk]').forEach(function(b){
@@ -1140,9 +1211,10 @@ async function loadMeTasks(){
           photo=await askText('קישור לצילום התוצאה','','הדבק/י קישור לתמונה');
           if(!photo){toast('המשימה דורשת צילום');return;}
         }
-        try{var rr=await sb.rpc('emp_complete_task',{p_token:_meTok,p_task:t.id,p_photo:photo||null});
-          if(rr.error)throw rr.error;toast('סומן כבוצע ✓');loadMeTasks();}
-        catch(e){toast('הסימון נכשל');}
+        try{
+          var rr=await sb.rpc('emp_done_today',{p_token:_meTok,p_task:t.id,p_photo:photo||null});
+          if(rr.error)throw rr.error;toast('סומן כבוצע ✓');loadMeTasks();
+        }catch(e){toast('הסימון נכשל: '+((e&&e.message)||e));}
       };
     });
   }catch(e){box.innerHTML='';}
