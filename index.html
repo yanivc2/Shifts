@@ -1945,7 +1945,6 @@ function getCell(di,sh){
 
 /* חלונות המשמרות: בוקר 08:00-16:00 | ערב 16:00-23:00 | לילה 23:00-08:00 (חוצה חצות) */
 var SHIFT_WIN={m:[480,960],e:[960,1380],n:[1380,1920]};
-var SHIFT_ICO={m:'\u2600\ufe0f',e:'\ud83c\udf07',n:'\ud83c\udf19'};
 function hhm(h,mm){return h*60+(mm||0);}
 /* שעות העובד -> {s,e} בדקות. null = אין שעת סיום, אי אפשר לחשב גלישה */
 function parseHrs(hrs,shId){
@@ -2098,7 +2097,7 @@ function render(){
         const chip=document.createElement('button');
         chip.className='emp-chip'+(a.derived?' derived':'')+(isFixed(emp.id,di,a.derived?a.from:sh.id)?' fixed':'')+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
         var _ini=(emp.name||'').trim().charAt(0)||'?';
-        chip.innerHTML='<span class="av'+(a.role==='store'?' store':'')+'">'+_ini+'</span>'+(a.derived?((SHIFT_ICO[a.from]||'☀️')+' '):'')+'<span class="nm">'+emp.name+'</span>'+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
+        chip.innerHTML='<span class="av'+(a.role==='store'?' store':'')+'">'+_ini+'</span><span class="nm">'+emp.name+'</span>'+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
         chip.onclick=()=>openCell(di,sh.id);
         body.appendChild(chip);
       });
@@ -3098,7 +3097,7 @@ function buildPrint(){
       html+='<td>';
       displayCell(di,sh.id).forEach(a=>{
         const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
-        html+='<div class="pemp'+(a.derived?' derived':'')+'">'+(a.derived?((SHIFT_ICO[a.from]||'☀️')+' '):'')+emp.name+(a.hrs?' <span style="font-size:11px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</i></div>';
+        html+='<div class="pemp'+(a.derived?' derived':'')+'">'+emp.name+(a.hrs?' <span style="font-size:11px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</i></div>';
       });
       html+='</td>';
     });
@@ -3143,7 +3142,7 @@ function buildGridScreen(){
       cell.forEach(function(a){
         var emp=loc().employees.find(function(e){return e.id===a.empId;});if(!emp)return;
         var fx=isFixed(emp.id,di,a.derived?a.from:sh.id);
-        html+='<div class="gemp'+(a.derived?' derived':'')+(fx?' fixed':'')+'"><span class="nm">'+(a.derived?(SHIFT_ICO[a.from]||'☀️'):'')+emp.name+'</span>'+(a.hrs?'<span class="hr">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
+        html+='<div class="gemp'+(a.derived?' derived':'')+(fx?' fixed':'')+'"><span class="nm">'+emp.name+'</span>'+(a.hrs?'<span class="hr">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
       });
       html+='</td>';
     });
