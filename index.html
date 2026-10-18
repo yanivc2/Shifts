@@ -20,7 +20,7 @@
 <style>
 :root{
   --ink:#201e1d; --muted:#645c50; --line:#dcd3c4; --bg:#f5ead8; --card:#f9f4ed;
-  --brand:#c67139; --brand-soft:#fff2eb; --onacc:#ffffff;
+  --brand:#c67139; --brand-soft:#fff2eb; --onacc:#ffffff; --fixed:#1d5fa8;
   --morning:#8c491a; --morning-bg:#ffe1d0;
   --evening:#643312; --evening-bg:#ffc6a5;
   --night:#56633f;  --night-bg:#e1eecc;
@@ -30,7 +30,7 @@
 }
 html[data-theme="sage"]{
   --ink:#201e1d; --muted:#56633f; --line:#ccdbb2; --bg:#f0fae1; --card:#f9f4ed;
-  --brand:#728157; --brand-soft:#f0fae1; --onacc:#ffffff;
+  --brand:#728157; --brand-soft:#f0fae1; --onacc:#ffffff; --fixed:#1d5fa8;
   --morning:#8c491a; --morning-bg:#ffe1d0;
   --evening:#643312; --evening-bg:#ffc6a5;
   --night:#3d472b;  --night-bg:#ccdbb2;
@@ -39,7 +39,7 @@ html[data-theme="sage"]{
 }
 html[data-theme="sand"]{
   --ink:#2e2b25; --muted:#645c50; --line:#c0b6a5; --bg:#eee7db; --card:#f9f4ed;
-  --brand:#b2622d; --brand-soft:#fff2eb; --onacc:#ffffff;
+  --brand:#b2622d; --brand-soft:#fff2eb; --onacc:#ffffff; --fixed:#1d5fa8;
   --morning:#8c491a; --morning-bg:#eee7db;
   --evening:#474238; --evening-bg:#dcd3c4;
   --night:#2e2b25;  --night-bg:#c0b6a5;
@@ -48,7 +48,7 @@ html[data-theme="sand"]{
 }
 html[data-theme="clay"]{
   --ink:#f9f4ed; --muted:#c0b6a5; --line:#645c50; --bg:#201e1d; --card:#474238;
-  --brand:#f6a06b; --brand-soft:#643312; --onacc:#201e1d;
+  --brand:#f6a06b; --brand-soft:#643312; --onacc:#201e1d; --fixed:#8cc0ff;
   --morning:#ffe1d0; --morning-bg:#643312;
   --evening:#ffe1d0; --evening-bg:#8c491a;
   --night:#ccdbb2;  --night-bg:#3d472b;
@@ -102,6 +102,7 @@ main{padding:12px}
 .emp-chip .role{font-size:11px;font-weight:700;padding:1px 6px;border-radius:6px;background:var(--brand-soft);color:var(--brand)}
 .emp-chip .role.store{background:#EFEAF9;color:#6B4FBB}
 .emp-chip.warn{border-color:var(--morning);background:var(--brand-soft)}
+.emp-chip.fixed .nm{color:var(--fixed)}
 .emp-chip.warn::after{content:"⚠";font-size:12px;color:var(--no)}
 .cell-add{width:28px;height:28px;border-radius:999px;background:rgba(0,0,0,.08);color:inherit;font-size:16px;font-weight:700;line-height:1}
 .empty-hint{color:var(--muted);font-size:13px}
@@ -237,10 +238,14 @@ main{padding:12px}
 .gt .sh-morning{background:var(--morning-bg);color:var(--morning)}
 .gt .sh-evening{background:var(--evening-bg);color:var(--evening)}
 .gt .sh-night{background:var(--night-bg);color:var(--night)}
-.gt td.cell{height:58px;font-size:12px;cursor:pointer}
+.gt td.cell{height:58px;font-size:var(--gfs,12px);cursor:pointer}
 .gt td.cell:active{background:var(--brand-soft)}
-.gt .gemp{margin:2px 0;font-weight:600;line-height:1.25}
-.gt .gemp i{font-style:normal;font-size:9.5px;font-weight:700;color:var(--brand);background:var(--brand-soft);border-radius:4px;padding:0 3px;margin-right:2px}
+.gt .gemp{margin:.15em 0;font-weight:600;line-height:1.2;display:flex;flex-wrap:wrap;justify-content:center;align-items:baseline;column-gap:.25em}
+.gt .gemp>*{white-space:nowrap}
+.gt.loose .gemp>*{white-space:normal;overflow-wrap:break-word;min-width:0}
+.gt .gemp.fixed .nm{color:var(--fixed);font-weight:800}
+.gt .gemp .hr{font-size:.82em;color:var(--muted)}
+.gt .gemp i{font-style:normal;font-size:.78em;font-weight:700;color:var(--brand);background:var(--brand-soft);border-radius:4px;padding:0 .3em}
 .gt .gemp i.store{color:#6B4FBB;background:#EFEAF9}
 .gt .gempty{color:var(--muted);font-size:16px;font-weight:700}
 #ptrInd{position:fixed;top:0;left:50%;transform:translate(-50%,0);z-index:70;background:var(--brand);color:var(--onacc);font-size:13px;font-weight:700;padding:8px 16px;border-radius:0 0 14px 14px;box-shadow:0 2px 8px rgba(0,0,0,.2);opacity:0;transition:opacity .15s;pointer-events:none;white-space:nowrap}
@@ -2091,9 +2096,9 @@ function render(){
       displayCell(di,sh.id).forEach(a=>{
         const emp=loc().employees.find(e=>e.id===a.empId);if(!emp)return;
         const chip=document.createElement('button');
-        chip.className='emp-chip'+(a.derived?' derived':'')+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
+        chip.className='emp-chip'+(a.derived?' derived':'')+(isFixed(emp.id,di,a.derived?a.from:sh.id)?' fixed':'')+(getAv(emp.id,di,sh.id)==='no'?' warn':'');
         var _ini=(emp.name||'').trim().charAt(0)||'?';
-        chip.innerHTML='<span class="av'+(a.role==='store'?' store':'')+'">'+_ini+'</span>'+(a.derived?((SHIFT_ICO[a.from]||'☀️')+' '):(isFixed(emp.id,di,sh.id)?'📌 ':''))+emp.name+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
+        chip.innerHTML='<span class="av'+(a.role==='store'?' store':'')+'">'+_ini+'</span>'+(a.derived?((SHIFT_ICO[a.from]||'☀️')+' '):'')+'<span class="nm">'+emp.name+'</span>'+(a.hrs?' <small style="color:var(--muted);font-weight:700">'+a.hrs+'</small>':'')+'<span class="role '+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'חנות':'קופה')+'</span>';
         chip.onclick=()=>openCell(di,sh.id);
         body.appendChild(chip);
       });
@@ -3137,7 +3142,8 @@ function buildGridScreen(){
       if(!cell.length)html+='<span class="gempty">+</span>';
       cell.forEach(function(a){
         var emp=loc().employees.find(function(e){return e.id===a.empId;});if(!emp)return;
-        html+='<div class="gemp'+(a.derived?' derived':'')+'">'+(a.derived?(SHIFT_ICO[a.from]||'☀️'):(isFixed(emp.id,di,sh.id)?'📌':''))+emp.name+(a.hrs?' <span style="font-size:10px;color:#556">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
+        var fx=isFixed(emp.id,di,a.derived?a.from:sh.id);
+        html+='<div class="gemp'+(a.derived?' derived':'')+(fx?' fixed':'')+'"><span class="nm">'+(a.derived?(SHIFT_ICO[a.from]||'☀️'):'')+emp.name+'</span>'+(a.hrs?'<span class="hr">'+a.hrs+'</span>':'')+'<i class="'+(a.role==='store'?'store':'')+'">'+(a.role==='store'?'\u05d7\u05e0\u05d5\u05ea':'\u05e7\u05d5\u05e4\u05d4')+'</i></div>';
       });
       html+='</td>';
     });
@@ -3145,7 +3151,33 @@ function buildGridScreen(){
   });
   html+='</tbody></table>';
   g.innerHTML=html;
+  fitGrid();
 }
+/* largest font at which the whole week fits on screen: no vertical scroll, and the name /
+   hours / role pieces of each line stay unbroken inside their column */
+var GFS_MIN=12,GFS_MAX=34;
+function fitGrid(){
+  var scr=document.getElementById('gridScreen');if(!scr||!scr.classList.contains('open'))return;
+  var g=document.getElementById('gsGrid'),t=g.querySelector('.gt'),sc=g.parentNode;if(!t)return;
+  function set(px){g.style.setProperty('--gfs',px+'px');}
+  function tallOk(){return sc.scrollHeight<=sc.clientHeight+1;}
+  function wideOk(){
+    var it=g.querySelectorAll('.gemp>*');
+    for(var i=0;i<it.length;i++){if(it[i].offsetWidth>it[i].parentNode.clientWidth+1)return false;}
+    return true;
+  }
+  t.classList.remove('loose');set(GFS_MIN);
+  if(!wideOk()){t.classList.add('loose');return;}  /* a name too long even at the smallest size: let it wrap */
+  if(!tallOk())return;                             /* too crowded for one screen: smallest size + scroll */
+  var lo=GFS_MIN,hi=GFS_MAX;
+  set(hi);if(tallOk()&&wideOk())return;
+  while(hi-lo>0.5){var m=(lo+hi)/2;set(m);if(tallOk()&&wideOk())lo=m;else hi=m;}
+  set(lo);
+}
+var _fitRaf=0;
+function fitGridSoon(){cancelAnimationFrame(_fitRaf);_fitRaf=requestAnimationFrame(fitGrid);}
+['resize','orientationchange','fullscreenchange','webkitfullscreenchange'].forEach(function(ev){window.addEventListener(ev,fitGridSoon);});
+if(document.fonts&&document.fonts.ready)document.fonts.ready.then(fitGridSoon);
 function openGrid(){
   /* must be a FULL close: reached from inside the שונות sheet, where the scroll is locked
      and the overlay is up. closeSheets(true) skipped both and froze the page. */
@@ -3153,7 +3185,7 @@ function openGrid(){
   document.getElementById('overlay').classList.remove('open');
   unlockScroll();
   buildGridScreen();fillGsLoc();
-  document.getElementById('gridScreen').classList.add('open');goFullscreen();
+  document.getElementById('gridScreen').classList.add('open');fitGrid();goFullscreen();
 }
 function closeGrid(){
   exitFullscreen();
