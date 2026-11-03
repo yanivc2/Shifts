@@ -1869,7 +1869,7 @@ async function renderPending(){
 /* ===== Cloud data layer (Supabase) ===== */
 async function cloudLoad(){
   var _prevCur=null;try{_prevCur=(typeof S!=='undefined'&&S&&S.cur)?S.cur:((JSON.parse(localStorage.getItem('sched-v1')||'{}')||{}).cur||null);}catch(e){}
-  S={locations:[],sched:{},avail:{},fixed:{},cur:null,roles:{},_empsCloud:{}};
+  S={locations:[],sched:{},avail:{},fixed:{},cur:null,roles:{},delGrants:{},_empsCloud:{}};
   const {data:stores,error:e1}=await sb.from('stores').select('id,name,created_at').order('created_at',{ascending:true});
   if(e1)throw e1;
   let blobs=[];
@@ -1888,7 +1888,9 @@ async function cloudLoad(){
   });
   try{
     const {data:{user}}=await sb.auth.getUser();
-    if(user){const {data:mems}=await sb.from('store_members').select('store_id,role').eq('user_id',user.id);(mems||[]).forEach(m=>{S.roles[m.store_id]=m.role;});}
+    if(user){const {data:mems}=await sb.from('store_members').select('store_id,role').eq('user_id',user.id);(mems||[]).forEach(m=>{S.roles[m.store_id]=m.role;});
+      /* הרשאת מחיקת עובדים למי שאינו בעלים (טבלת emp_delete_grants) */
+      try{const {data:gr}=await sb.from('emp_delete_grants').select('store_id').eq('user_id',user.id);(gr||[]).forEach(g=>{S.delGrants[g.store_id]=true;});}catch(e){}}
   }catch(e){}
   if(S.locations.length)S.cur=(_prevCur&&S.locations.find(l=>l.id===_prevCur))?_prevCur:S.locations[0].id;
 }
@@ -1924,6 +1926,7 @@ async function importLocalToCloud(){
 function myRole(locId){return (S.roles||{})[locId]||'owner';}
 function canManage(locId){var r=myRole(locId);return r==='owner'||r==='coowner';}
 function isOwner(locId){return myRole(locId)==='owner';}
+function canDeleteEmps(locId){return isOwner(locId)||!!((S.delGrants||{})[locId]);}
 async function acceptInvites(){try{const {data}=await sb.rpc('accept_invites');return data||0;}catch(e){return 0;}}
 async function inviteMember(locId,email,role){const {data,error}=await sb.rpc('invite_member',{p_store:locId,p_email:email,p_role:role});if(error)throw error;return data;}
 async function listMembers(locId){const {data,error}=await sb.rpc('list_members',{p_store:locId});if(error)throw error;return data||{members:[],invites:[]};}
@@ -2161,10 +2164,11 @@ function renderCellList(){
     };
     row.querySelector('.pin-btn').onclick=(ev)=>{
       ev.stopPropagation();
-      const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);if(!a){toast('שבץ את העובד קודם, ואז נעץ');return;}
+      const arr=getCell(di,sh);const a=arr.find(c=>c.empId===emp.id);
       let fx=getFix(di,sh);
+      /* ביטול נעיצה מותר גם כשהעובד הוסר מהשבוע הזה; רק נעיצה חדשה דורשת שיבוץ */
       if(isFixed(emp.id,di,sh)){fx=fx.filter(f=>f.empId!==emp.id);toast(emp.name+' הוסר מהמשמרות הקבועות');}
-      else{fx=[...fx,{empId:emp.id,role:a.role,hrs:a.hrs||''}];toast(emp.name+' 📌 קבוע במשמרת זו בכל שבוע');}
+      else{if(!a){toast('שבץ את העובד קודם, ואז נעץ');return;}fx=[...fx,{empId:emp.id,role:a.role,hrs:a.hrs||''}];toast(emp.name+' 📌 קבוע במשמרת זו בכל שבוע');}
       setFix(di,sh,fx);renderCellList();
     };
     row.querySelector('.hrs-btn').onclick=async(ev)=>{
@@ -2750,13 +2754,31 @@ document.getElementById('btnSaveEmp').onclick=()=>{
   else loc().employees.push({id:'E'+Date.now(),name,phone,role,offDays:offDays,commit:commit});
   save({t:'emps'});openEmployees();
 };
+function dropEmpLocal(locId,empId){
+  var lo=S.locations.find(function(l){return l.id===locId;});if(!lo)return;
+  lo.employees=(lo.employees||[]).filter(e=>e.id!==empId);
+  const ws=S.sched[locId]||{};Object.values(ws).forEach(w=>{Object.keys(w).forEach(k=>{if(Array.isArray(w[k]))w[k]=w[k].filter(c=>c.empId!==empId);});});
+  const fx=(S.fixed||{})[locId]||{};Object.keys(fx).forEach(k=>{if(Array.isArray(fx[k]))fx[k]=fx[k].filter(c=>c.empId!==empId);});
+}
 document.getElementById('btnDelEmp').onclick=async()=>{
+  /* בדיקת הרשאה לפני חלון האישור */
+  if(!canDeleteEmps(S.cur)){toast('אין לך הרשאה למחוק עובדים — פנה לבעלים');return;}
   if(!(await askConfirm('למחוק את העובד? השיבוצים שלו יוסרו.')))return;
-  if(!isOwner(S.cur)){toast('מחיקת עובד מותרת לבעלים בלבד');return;}
-  loc().employees=loc().employees.filter(e=>e.id!==editEmpId);
-  const ws=S.sched[S.cur]||{};Object.values(ws).forEach(w=>{Object.keys(w).forEach(k=>{w[k]=w[k].filter(c=>c.empId!==editEmpId);});});
-  const fx=(S.fixed||{})[S.cur]||{};Object.keys(fx).forEach(k=>{fx[k]=fx[k].filter(c=>c.empId!==editEmpId);});
-  save(false);openEmployees();cloudSaveBranch(S.cur).catch(function(){});
+  const locId=S.cur,empId=editEmpId;
+  if(isOwner(locId)){
+    dropEmpLocal(locId,empId);
+    save(false);openEmployees();cloudSaveBranch(locId).catch(function(){});
+    return;
+  }
+  /* מנהל עם הרשאת מחיקה: המחיקה מתבצעת בשרת (delete_employee) */
+  var r;
+  try{r=await sb.rpc('delete_employee',{p_store:locId,p_emp:String(empId)});}catch(e){r={error:e};}
+  if(r&&r.error){toast('המחיקה נכשלה — '+((r.error.message)||'נסה שוב'));return;}
+  if(r&&r.data&&r.data.ok===false){toast(r.data.reason==='delete_blocked'?'אין לך הרשאה למחוק עובדים — פנה לבעלים':'המחיקה נכשלה');return;}
+  dropEmpLocal(locId,empId);
+  var lo=S.locations.find(function(l){return l.id===locId;})||{};
+  S._empsCloud=S._empsCloud||{};S._empsCloud[locId]=(lo.employees||[]).slice();
+  save(false);openEmployees();toast('העובד נמחק');
 };
 
 /* ---- Members / permissions (phase 2) ---- */
